@@ -1,6 +1,7 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
 import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture } from "@babylonjs/core";
+import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
 
@@ -12,9 +13,6 @@ var messagesLimit = 200;
 
 var statusBlock1: GUI.TextBlock;
 var textSlider1: GUI.Slider;
-var colorPicker1: GUI.ColorPicker;
-var isBrushMenuVisible: boolean;
-var brushMenuRows: GUI.StackPanel[] = [];
 
 // Texture URLs
 var mosaicURL = "./textures/mosaic.jfif";
@@ -26,16 +24,11 @@ var concreteURL = "./textures/concrete.jpg";
 
 // VR additions
 var vrHelper;
-var activeTool = 1;
-var lineKey = 1;
-var penKey = 2;
-var eraserKey = 3;
-var floorFontSize = 32;
-var uiMeshes: { setEnabled: (arg0: boolean) => void; }[] = [];
-
-// paint app additions
 var leftController: Core.Nullable<Core.AbstractMesh>;
-var rightController: Core.Nullable<Core.AbstractMesh>;
+var rightController: Core.Nullable<Core.AbstractMesh>
+
+var grabbedMesh: Core.Nullable<Core.AbstractMesh>;
+var grabbableTag = "Grabbable";
 
 var openScene = function() {
     setupVR();
@@ -55,48 +48,14 @@ class Playground {
         // Add lights to the scene
         var light1 = new Core.HemisphericLight("light1", new Core.Vector3(1, 1, 0), scene);
 
-        var ground = Core.MeshBuilder.CreateGround("ground", {width: 25, height: 25}, scene);
+        var ground = Core.MeshBuilder.CreateGround("ground", {width: 10, height: 10}, scene);
         ground.position = new Vector3(0, -0.01, 0);
-
-        var optionsPlane1 = MeshBuilder.CreatePlane("optionsPlane", {size: 0.25});
-        optionsPlane1.position = new Vector3(-0.25, 0, 1);
-        optionsPlane1.rotate(new Vector3(1, 0, 0), Math.PI / 2);
-        optionsPlane1.rotate(new Vector3(0, 0, 1), Math.PI);
-        uiMeshes.push(optionsPlane1);
-
-        var optionsPlane2 = MeshBuilder.CreatePlane("optionsPlane", {size: 0.25});
-        optionsPlane2.position = new Vector3(0, 0, 1);
-        optionsPlane2.rotate(new Vector3(1, 0, 0), Math.PI / 2);
-        optionsPlane2.rotate(new Vector3(0, 0, 1), Math.PI);
-        uiMeshes.push(optionsPlane2);
-
-        var optionsPlane3 = MeshBuilder.CreatePlane("optionsPlane", {size: 0.25});
-        optionsPlane3.position = new Vector3(0.25, 0, 1);
-        optionsPlane3.rotate(new Vector3(1, 0, 0), Math.PI / 2);
-        optionsPlane3.rotate(new Vector3(0, 0, 1), Math.PI);
-        uiMeshes.push(optionsPlane3);
-
-        var toolsPlane = MeshBuilder.CreatePlane("toolsPlane", {size: 1});
-        toolsPlane.position = new Vector3(0, 0, 3);
-        toolsPlane.rotate(new Vector3(1, 0, 0), Math.PI / 2);
-        uiMeshes.push(toolsPlane);
 
         var debugPlane = MeshBuilder.CreatePlane("debugPlane", {size: 1.5});
         debugPlane.position = new Vector3(-1.5, 0, 2);
         debugPlane.rotate(new Vector3(1, 0, 0), Math.PI / 2);
         debugPlane.rotate(new Vector3(0, 1, 0), Math.PI * 3 / 2, Core.Space.WORLD);
 
-        var optionsTexture1 = GUI.AdvancedDynamicTexture.CreateForMesh(optionsPlane1);
-        optionsTexture1.background = "black";
-
-        var optionsTexture2 = GUI.AdvancedDynamicTexture.CreateForMesh(optionsPlane2);
-        optionsTexture2.background = "black";
-
-        var optionsTexture3 = GUI.AdvancedDynamicTexture.CreateForMesh(optionsPlane3);
-        optionsTexture3.background = "black";
-
-        var toolsTexture = GUI.AdvancedDynamicTexture.CreateForMesh(toolsPlane);
-        toolsTexture.background = "black";
 
         var debugTexture = GUI.AdvancedDynamicTexture.CreateForMesh(debugPlane);
         // debugTexture.background = "black";
@@ -110,38 +69,6 @@ class Playground {
         menuBar.alpha = 0.6;
         menuBar.zIndex = -100;
         // debugTexture.addControl(menuBar);
-
-        var menuHeight = "200px";
-        var menuWidth = "800px";
-        var menuTop = "20px";
-        var menuFontSize = 64;
-
-        var fileMenu = new Menu(optionsTexture1, menuHeight, menuWidth, "File", menuFontSize);
-        fileMenu.button.onPointerClickObservable.add(fileButtonCallback);
-        fileMenu.top = menuTop;
-        fileMenu.left = "0";
-        fileMenu.container.width = 1;
-        fileMenu.button.width = menuWidth;
-        fileMenu.addOption("New", newButtonCallback); 
-        fileMenu.addOption("Load", loadButtonCallback);
-        fileMenu.addOption("Save", saveButtonCallback);
-        fileMenu.addOption("Quit", quitButtonCallback);
-
-        var editMenu = new Menu(optionsTexture2, menuHeight, menuWidth, "Edit", menuFontSize);        
-        editMenu.button.onPointerClickObservable.add(editButtonCallback);
-        editMenu.top = menuTop;
-        editMenu.container.width = 1;
-        editMenu.container.left = "0px";
-        editMenu.button.width = menuWidth;
-
-        var viewMenu = new Menu(optionsTexture3, menuHeight, menuWidth, "View", menuFontSize)
-        viewMenu.button.onPointerClickObservable.add(viewButtonCallback);
-        viewMenu.top = menuTop;
-        viewMenu.container.width = 1;
-        viewMenu.container.left = "0";
-        viewMenu.button.width = menuWidth;
-        viewMenu.addOption("Next", nextButtonCallback);
-        viewMenu.addOption("Previous", previousButtonCallback);
 
         var statusBar = new GUI.StackPanel();
         statusBar.width = 1;
@@ -241,351 +168,25 @@ class Playground {
         textSlider1.onValueChangedObservable.add(textSliderCallback1);
         debugTexture.addControl(textSlider1);
 
-        var toolPallete = new GUI.StackPanel();
-        toolPallete.width = 1;
-        toolPallete.height = 0.9;
-        toolPallete.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        toolPallete.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        toolPallete.zIndex = -110;
-        toolPallete.alpha = 0.9;
-        toolPallete.background = "yellow";
-        toolsTexture.addControl(toolPallete);
-
-        var radioButtonSize = "120px";
-        var radioButtonLabelWidth = "320px";
-        var radioButtonLeft = "10px";
-        var labelLeft = "140px";
-        var colorPickerSize = "600px";
-        var colorPickerLeft = "360px";
-        var colorpickerTop = "200px";
-        var brushMenuLeft = "360px";
-        var brushMenuHeight = "300px";
-        var brushMenuWidth = "600px";
+        // add test spheres
+        var rows = 5;
+        var columns = 5;
+        var x = 0.5;
+        var y = 0.5;
+        var z = 1.5;
+        var scale = 0.2;
+        for (var i = 0; i < rows; i++) {
+            for (var j = 0; j < columns; j++) {
+                var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere", {diameter: 0.1}, scene);
+                sphere.position = new Vector3(x, y + i * scale, z + j * scale);
+            }
+        }
         
-        var lineButton =  new GUI.RadioButton();
-        lineButton.onPointerUpObservable.add(lineButtonCallback);
-        lineButton.width = radioButtonSize;
-        lineButton.height = radioButtonSize;
-        lineButton.color = "green";
-        lineButton.background = "white";
-        lineButton.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        lineButton.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        lineButton.left = radioButtonLeft;
-        lineButton.top = "20px";
-        lineButton.isChecked = true;
-        toolsTexture.addControl(lineButton);
-
-        var lineTextBlock = new GUI.TextBlock();
-        lineTextBlock.text = "Line";
-        lineTextBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        lineTextBlock.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        lineTextBlock.textHorizontalAlignment = GUI.Container.HORIZONTAL_ALIGNMENT_LEFT;
-        lineTextBlock.width = radioButtonLabelWidth;
-        lineTextBlock.height = radioButtonSize;
-        lineTextBlock.color = "green";
-        lineTextBlock.left = labelLeft;
-        lineTextBlock.top = "20px";
-        lineTextBlock.fontSize = floorFontSize;
-        toolsTexture.addControl(lineTextBlock);
-
-        var penButton = new GUI.RadioButton();
-        penButton.onPointerUpObservable.add(penButtonCallback);
-        penButton.width = radioButtonSize;
-        penButton.height = radioButtonSize;
-        penButton.color = "blue";
-        penButton.background = "white";
-        penButton.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        penButton.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        penButton.left = radioButtonLeft;
-        penButton.top = "160px";
-        toolsTexture.addControl(penButton);
-
-        var penTextBlock = new GUI.TextBlock();
-        penTextBlock.text = "Pen";
-        penTextBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        penTextBlock.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        penTextBlock.textHorizontalAlignment = GUI.Container.HORIZONTAL_ALIGNMENT_LEFT;
-        penTextBlock.width = radioButtonLabelWidth;
-        penTextBlock.height = radioButtonSize;
-        penTextBlock.color = "blue";
-        penTextBlock.left = labelLeft;
-        penTextBlock.top = "160px";
-        penTextBlock.fontSize = floorFontSize;
-        toolsTexture.addControl(penTextBlock);
-
-        var eraserButton = new GUI.RadioButton();
-        eraserButton.onPointerUpObservable.add(eraserButtonCallback);
-        eraserButton.width = radioButtonSize;
-        eraserButton.height = radioButtonSize;
-        eraserButton.color = "red";
-        eraserButton.background = "white";
-        eraserButton.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        eraserButton.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        eraserButton.left = radioButtonLeft;
-        eraserButton.top = "300px";
-        toolsTexture.addControl(eraserButton);
-
-        var eraserTextBlock = new GUI.TextBlock();
-        eraserTextBlock.text = "Eraser";
-        eraserTextBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        eraserTextBlock.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        eraserTextBlock.textHorizontalAlignment = GUI.Container.HORIZONTAL_ALIGNMENT_LEFT;
-        eraserTextBlock.width = radioButtonLabelWidth;
-        eraserTextBlock.height = radioButtonSize;
-        eraserTextBlock.color = "red";
-        eraserTextBlock.left = labelLeft;
-        eraserTextBlock.top = "300px";
-        eraserTextBlock.fontSize = floorFontSize;
-        toolsTexture.addControl(eraserTextBlock);
-
-        var cPickerButton = new GUI.Button();
-        cPickerButton.width = radioButtonSize;
-        cPickerButton.height = radioButtonSize;
-        cPickerButton.color = "blue";
-        cPickerButton.background = "white";
-        cPickerButton.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        cPickerButton.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        cPickerButton.left = radioButtonLeft;
-        cPickerButton.top = "440px";
-        cPickerButton.onPointerClickObservable.add(cPickerButtonCallback);
-        toolsTexture.addControl(cPickerButton);
-
-        var colorPickerTextBlock = new GUI.TextBlock();
-        colorPickerTextBlock.text = "Color";
-        colorPickerTextBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        colorPickerTextBlock.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        colorPickerTextBlock.textHorizontalAlignment = GUI.Container.HORIZONTAL_ALIGNMENT_LEFT;
-        colorPickerTextBlock.width = radioButtonLabelWidth;
-        colorPickerTextBlock.height = radioButtonSize;
-        colorPickerTextBlock.color = "blue";
-        colorPickerTextBlock.left = labelLeft;
-        colorPickerTextBlock.top = "440px";
-        colorPickerTextBlock.fontSize = floorFontSize;
-        toolsTexture.addControl(colorPickerTextBlock);
-
-        colorPicker1 = new GUI.ColorPicker();
-        colorPicker1.value = new Color3(1, 1, 1);
-        colorPicker1.height = colorPickerSize;
-        colorPicker1.width = colorPickerSize;
-        colorPicker1.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        colorPicker1.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        colorPicker1.top = colorpickerTop;
-        colorPicker1.left = colorPickerLeft;
-        colorPicker1.isVisible = false;
-        colorPicker1.onValueChangedObservable.add(colorPickerCallback1);
-        toolsTexture.addControl(colorPicker1);
-
-        var brushButton = new GUI.Button();
-        brushButton.width = radioButtonSize;
-        brushButton.height = radioButtonSize;
-        brushButton.color = "green";
-        brushButton.background = "white";
-        brushButton.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        brushButton.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        brushButton.left = radioButtonLeft;
-        brushButton.top = "580px";
-        brushButton.onPointerClickObservable.add(brushButtonCallback);
-        toolsTexture.addControl(brushButton);
-
-        var brushMenuTextBlock = new GUI.TextBlock();
-        brushMenuTextBlock.text = "Brush";
-        brushMenuTextBlock.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        brushMenuTextBlock.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        brushMenuTextBlock.textHorizontalAlignment = GUI.Container.HORIZONTAL_ALIGNMENT_LEFT;
-        brushMenuTextBlock.width = radioButtonLabelWidth;
-        brushMenuTextBlock.height = radioButtonSize;
-        brushMenuTextBlock.color = "green";
-        brushMenuTextBlock.left = labelLeft;
-        brushMenuTextBlock.top = "580px";
-        brushMenuTextBlock.fontSize = floorFontSize;
-        toolsTexture.addControl(brushMenuTextBlock);
-
-        var brushMenuRow1 = new GUI.StackPanel();
-        brushMenuRow1.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        brushMenuRow1.verticalAlignment = GUI.Container.VERTICAL_ALIGNMENT_TOP;
-        brushMenuRow1.width = brushMenuWidth;
-        brushMenuRow1.height = brushMenuHeight;
-        brushMenuRow1.top = "10px"
-        brushMenuRow1.left = brushMenuLeft;
-        brushMenuRow1.alpha = 0.6;
-        brushMenuRow1.background = "gray";
-        toolsTexture.addControl(brushMenuRow1);
-        brushMenuRows.push(brushMenuRow1);
-
-        var textureButton1 = GUI.Button.CreateImageOnlyButton("textureButton1", mosaicURL);
-        textureButton1.width = 0.5;
-        textureButton1.height = 1;
-        textureButton1.top = "100000px";
-        textureButton1.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textureButton1.onPointerClickObservable.add(textureButtonCallback1);
-        brushMenuRow1.addControl(textureButton1);
-
-        var textureButton2 = GUI.Button.CreateImageOnlyButton("textureButton2", marbleURL);
-        textureButton2.width = 0.5;
-        textureButton2.height = 1;
-        textureButton2.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        textureButton2.onPointerClickObservable.add(textureButtonCallback3);
-        brushMenuRow1.addControl(textureButton2);
-
-
-        var brushMenuRow2 = new GUI.StackPanel();
-        brushMenuRow2.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        brushMenuRow2.verticalAlignment = GUI.Container.VERTICAL_ALIGNMENT_TOP;
-        brushMenuRow2.width = brushMenuWidth;
-        brushMenuRow2.height = brushMenuHeight;
-        brushMenuRow2.top = "310px"
-        brushMenuRow2.left = brushMenuLeft;
-        brushMenuRow2.alpha = 0.6;
-        brushMenuRow2.background = "gray";
-        toolsTexture.addControl(brushMenuRow2);
-        brushMenuRows.push(brushMenuRow2);
-
-        var textureButton3 = GUI.Button.CreateImageOnlyButton("textureButton3", leafURL);
-        textureButton3.width = 0.5;
-        textureButton3.height = 1;
-        textureButton3.top = "100000px";
-        textureButton3.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textureButton3.onPointerClickObservable.add(textureButtonCallback2);
-        brushMenuRow2.addControl(textureButton3);
-
-        var textureButton4 = GUI.Button.CreateImageOnlyButton("textureButton4", volcanicURL);
-        textureButton4.width = 0.5;
-        textureButton4.height = 1;
-        textureButton4.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        textureButton4.onPointerClickObservable.add(textureButtonCallback5);
-        brushMenuRow2.addControl(textureButton4);
-
-        var brushMenuRow3 = new GUI.StackPanel();
-        brushMenuRow3.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        brushMenuRow3.verticalAlignment = GUI.Container.VERTICAL_ALIGNMENT_TOP;
-        brushMenuRow3.width = brushMenuWidth;
-        brushMenuRow3.height = brushMenuHeight;
-        brushMenuRow3.top = "610px"
-        brushMenuRow3.left = brushMenuLeft;
-        brushMenuRow3.alpha = 0.6;
-        brushMenuRow3.background = "gray";
-        toolsTexture.addControl(brushMenuRow3);
-        brushMenuRows.push(brushMenuRow3);
-
-        var textureButton5 = GUI.Button.CreateImageOnlyButton("textureButton5", plasterURL);
-        textureButton5.width = 0.5;
-        textureButton5.height = 1;
-        textureButton5.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
-        textureButton5.onPointerClickObservable.add(textureButtonCallback4);
-        brushMenuRow3.addControl(textureButton5);
-
-        var textureButton6 = GUI.Button.CreateImageOnlyButton("textureButton6", concreteURL);
-        textureButton6.width = 0.5;
-        textureButton6.height = 1;
-        textureButton6.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textureButton6.onPointerClickObservable.add(textureButtonCallback6);
-        brushMenuRow3.addControl(textureButton6);
-
-        brushMenuRow1.isVisible = false;
-        brushMenuRow2.isVisible = false;
-        brushMenuRow3.isVisible = false;
-
-        // paint app additions
-
         return scene;
         
     }
 }
 
-class Menu {
-    height: string;
-    width: string;
-    color: string;
-    background: string;
-    advancedtexture: GUI.AdvancedDynamicTexture;
-    container: any;
-    button: GUI.Button;
-    options: any;
-    fontSize: number;
-
-    constructor(advancedTexture: GUI.AdvancedDynamicTexture, height: string, width: string, buttonName: string, fontSize: number) {
-        this.height = height;
-        this.width = width;
-        this.color = "black";
-        this.background = "white";
-        this.fontSize = fontSize;
-
-        this.advancedtexture = advancedTexture;
-
-        // Container
-        this.container = new GUI.Container();
-        this.container.width = this.width;
-        this.container.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        this.container.horizontalAlignmengt = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
-        this.container.isHitTestVisible = false;
-
-        // Primary button
-        this.button = GUI.Button.CreateSimpleButton("", buttonName);
-        this.button.fontSize = fontSize;
-        this.button.height = this.height;
-        this.button.background = this.background;
-        this.button.color = this.color;
-        this.button.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-
-        // Options Panel
-        this.options = new GUI.StackPanel();
-        this.options.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        this.options.top = this.height;
-        this.options.width = width;
-        this.options.isVisible = false;
-        this.options.isVertical = true;
-
-        var _this = this;
-        this.button.onPointerUpObservable.add(function() {
-            _this.options.isVisible = !_this.options.isVisible;
-        });
-
-        // Make dropdown visible
-        this.container.onPointerEnterObservable.add(function() {
-            _this.container.zIndex = 1000;
-        })
-
-        this.container.onPointerEnterObservable.add(function() {
-            _this.container.zIndex = 0;
-        });
-
-        // add controls
-        this.advancedtexture.addControl(this.container);
-        this.container.addControl(this.button);
-        this.container.addControl(this.options);
-    }
-
-    get top() {
-        return this.container.top;
-    }
-
-    set top(_top) {
-        this.container.top = _top;
-    }
-
-    get left() {
-        return this.container.left;
-    }
-
-    set left(_left) {
-        this.container.left = _left;
-    }
-
-    addOption(text: string, callback: (eventData: GUI.Vector2WithInfo, eventState: Core.EventState) => void) {
-        var button = GUI.Button.CreateSimpleButton(text, text);
-        button.height = this.height;
-        button.paddingTop = "-1px";
-        button.background = this.background;
-        button.color = this.color;
-        button.alpha = 1.0;
-        button.fontSize = this.fontSize;
-        button.onPointerUpObservable.add(() => {
-            this.options.isVisible = false;
-        });
-        button.onPointerClickObservable.add(callback);
-        this.options.addControl(button);
-    }
-}
 
 /******* End of the create scene function ******/    
 // code to use the Class above
@@ -595,107 +196,9 @@ var createScene = function() {
 }
 
 //#region Callbacks
-var fileButtonCallback = function() {
-    logMessage("Clicked File");
-}
-
-var newButtonCallback = function() {
-    logMessage("Clicked New");
-}
-
-var loadButtonCallback = function() {
-    logMessage("Clicked Load");
-}
-
-var saveButtonCallback = function() {
-    logMessage("Clicked Save");
-}
-
-var quitButtonCallback = function() {
-    logMessage("Clicked Quit");
-}
-
-var editButtonCallback = function() {
-    logMessage("Clicked Edit");    
-}
-
-var viewButtonCallback = function() {
-    logMessage("Clicked View");
-}
-
-var nextButtonCallback = function() {
-    logMessage("Clicked Next");
-}
-
-var previousButtonCallback = function() {
-    logMessage("Clicked Previous");
-}
-
-var lineButtonCallback = function() {
-    logMessage("Clicked Line Tool")
-    activeTool = lineKey;
-}
-
-var penButtonCallback = function() {
-    logMessage("Clicked Pen Tool");
-    activeTool = penKey;
-}
-
-var eraserButtonCallback = function() {
-    logMessage("Clicked Eraser Tool");
-    activeTool = eraserKey;
-}
 
 var statusButtonCallback = function() {
     logMessage("Clicked Status Title Bar");
-}
-
-var cPickerButtonCallback = function() {
-    if (colorPicker1.isVisible) {
-        colorPicker1.isVisible = false;
-    } else {
-        colorPicker1.isVisible = true;     
-    }
-    
-    isBrushMenuVisible = false;
-    for (var i = 0; i < brushMenuRows.length; i++) {
-        brushMenuRows[i].isVisible = isBrushMenuVisible;
-    }
-    
-}
-
-var brushButtonCallback = function() {
-    if (isBrushMenuVisible) {
-        isBrushMenuVisible = false;
-        logMessage("Hide Brush Menu");
-    } else {
-        isBrushMenuVisible = true;
-        logMessage("Show Brush Menu");
-    }
-
-    for (var i = 0; i < brushMenuRows.length; i++) {
-        brushMenuRows[i].isVisible = isBrushMenuVisible;
-    }
-    colorPicker1.isVisible = false;
-}
-
-var textureButtonCallback1 = function() {
-    logMessage("Clicked on a texture option");
-}
-var textureButtonCallback2 = function() {
-    logMessage("Clicked on a texture option");
-}
-var textureButtonCallback3 = function() {
-    logMessage("Clicked on a texture option");
-}
-var textureButtonCallback4 = function() {
-    logMessage("Clicked on a texture option");
-}
-var textureButtonCallback5 = function() {
-    logMessage("Clicked on a texture option");
-}
-var textureButtonCallback6 = function() {
-    logMessage("Clicked on a texture option");
 }
 
 var logMessage = function(message: string) {
@@ -716,10 +219,6 @@ var textSliderCallback1 = function() {
     textSlider1.maximum = messages.length - 1;
     curMessageIndex = textSlider1.value - textSlider1.value % 1;
     updateStatusBlock1();
-}
-
-var colorPickerCallback1 = function() {
-    logMessage("Changed Color");
 }
 
 
@@ -747,6 +246,16 @@ var setupVR = function() {
         // handle selection?
     });
 
+    vrHelper.onNewMeshSelected.add(function(mesh) {
+        if (mesh.name.indexOf(grabbableTag) != -1) {
+            grabbedMesh = mesh;
+        }
+    });
+
+    vrHelper.onSelectedMeshUnselected.add(function() {
+        grabbedMesh = null;
+    });
+
     vrHelper.onControllerMeshLoaded.add((webVRController) => {
         if (webVRController.hand == 'left') {
             leftController = webVRController.mesh;
@@ -764,32 +273,8 @@ var setupVR = function() {
             } else {
                 if (stateObject.pressed === true) {
                     logMessage("Pressed B button on right controller");
-                    // if (state === "Entry") {
-                    //     if (activeTool === lineKey) {
-                    //         logMessage("Start Straight Line");
-                    //         startStraightLine(getDrawPosition()); // local or world position?
-                    //     } else if (activeTool === penKey) {
-                    //         if (stateObject.pressed === true) {
-                    //             startStroke(getDrawPosition());
-                    //         }
-                    //     } else if (activeTool === eraserKey) {
-                    //         // if (stateObject.pressed === true) {
-                    //         //     handleErase();
-                    //         // }
-                    //         // moved to render loop to be continuous
-                    //     }
-                    //}
                 } else if (stateObject.pressed === false) {
-                    // logMessage("Released B button");
-                    // if (state === "DrawingLine") {
-                    //     if (activeTool === lineKey) {
-                    //         confirmStraightLine(getDrawPosition());
-                    //     } 
-                    // } else if (state === "DrawingStroke") {
-                    //     if (activeTool === penKey) {
-                    //         confirmStroke();
-                    //     } 
-                    // }
+
                 }
 
             }
@@ -813,13 +298,16 @@ var setupVR = function() {
         var leftLastTriggerValue: number;
         var rightLastTriggerValue: number;
         webVRController.onTriggerStateChangedObservable.add((stateObject: { value: number; }) => {
-            if (webVRController.hand == 'left') {
-                if (leftLastTriggerValue && leftLastTriggerValue < 0.9 && stateObject.value >= 0.9) {
-                    logMessage("Pressed Left Primary Trigger at " + webVRController.position.toString());
-                    // handleTriggerPressed(webVRController.devicePosition.clone());
-                    // handleTriggerPressed(webVRController.devicePosition); this did not work properly
+            if (webVRController.hand == "left") {
+                if (grabbedMesh != null) {
+                    logMessage("Grabbed: " + grabbedMesh.name);
+                    var m = webVRController.mesh;
+                    if (m != null) {
+                        m.addChild(grabbedMesh);
+                    } else {
+                        logMessage("WebVR controller didn't have a mesh.");
+                    }
                 }
-                leftLastTriggerValue = stateObject.value;
             } else {
                 if (rightLastTriggerValue && rightLastTriggerValue < 0.9 && stateObject.value >= 0.9) {
                     logMessage("Pressed Right Primary Trigger");
