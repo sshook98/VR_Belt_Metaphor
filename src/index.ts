@@ -1,9 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { StackPanel, Slider, TextBlock } from "@babylonjs/gui";
-import { Color3, ToLinearSpace, Vector3, Material, StandardMaterial, PickingInfo, _BabylonLoaderRegistered, Mesh, MeshBuilder, WebVRController, StateCondition, CircleEase, ActionManager, ExecuteCodeAction, Camera, Texture } from "@babylonjs/core";
-import { colorCorrectionPixelShader } from "@babylonjs/core/Shaders/colorCorrection.fragment";
-import { logDepthDeclaration } from "@babylonjs/core/Shaders/ShadersInclude/logDepthDeclaration";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture } from "@babylonjs/core";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
 
@@ -40,30 +37,14 @@ var uiMeshes: { setEnabled: (arg0: boolean) => void; }[] = [];
 var leftController: Core.Nullable<Core.AbstractMesh>;
 var rightController: Core.Nullable<Core.AbstractMesh>;
 
-var lineToolTip: Core.Mesh;
-var eraserToolTip: Core.Mesh;
-var straightLineStartingPoint = new Vector3(0, 0, 0);
-var curStraightLine: Core.Mesh;
-var allStraightLines: Core.Mesh[] = [];
-
-var strokeStartingPoint = new Vector3(0, 0, 0);
-var curStroke: Core.Mesh[];
-var curStrokePoints: Core.Vector3[] = [];
-var allStrokes: Mesh[][] = [];
-
-var state = "Entry";
-var ribbonTexture: Core.Texture;
-var lastPoint: Vector3 = new Vector3(10000, 10000, 10000);
-
-var openFloorScene = function() {
-    scene = floorScene;
+var openScene = function() {
     setupVR();
 }
 
 
 /******* Add the Playground Class with a static CreateScene function ******/
 class Playground { 
-    public static CreateFloorScene(engine: Core.Engine, canvas: HTMLCanvasElement): Core.Scene {
+    public static CreateScene(engine: Core.Engine, canvas: HTMLCanvasElement): Core.Scene {
         // Create the scene space
         var scene = new Core.Scene(engine);
 
@@ -76,11 +57,6 @@ class Playground {
 
         var ground = Core.MeshBuilder.CreateGround("ground", {width: 25, height: 25}, scene);
         ground.position = new Vector3(0, -0.01, 0);
-
-        // var uiPlane = MeshBuilder.CreatePlane("uiPlane", {size: 0.5});
-        // uiPlane.position = new Vector3(-1, 0, 2);
-        // uiPlane.rotate(new Vector3(0, 1, 0), -Math.PI / 2, Core.Space.WORLD);
-        // uiMeshes.push(uiPlane);
 
         var optionsPlane1 = MeshBuilder.CreatePlane("optionsPlane", {size: 0.25});
         optionsPlane1.position = new Vector3(-0.25, 0, 1);
@@ -510,13 +486,6 @@ class Playground {
         brushMenuRow3.isVisible = false;
 
         // paint app additions
-        var toolTipSize = 0.1;
-        var path = [new Vector3(-toolTipSize / 2, 0, 0), new Vector3(toolTipSize / 2, 0, 0)];
-        lineToolTip = MeshBuilder.CreateLines("lineToolTip", {points: path}, scene)
-        eraserToolTip = MeshBuilder.CreateSphere("eraserToolTip", {diameter: 0.1}, scene);
-        eraserToolTip.isVisible = false;
-
-        ribbonTexture = new Texture(mosaicURL, scene);
 
         return scene;
         
@@ -621,8 +590,8 @@ class Menu {
 /******* End of the create scene function ******/    
 // code to use the Class above
 
-var createFloorScene = function() {
-    return Playground.CreateFloorScene(engine, engine.getRenderingCanvas() as HTMLCanvasElement);
+var createScene = function() {
+    return Playground.CreateScene(engine, engine.getRenderingCanvas() as HTMLCanvasElement);
 }
 
 //#region Callbacks
@@ -665,22 +634,16 @@ var previousButtonCallback = function() {
 var lineButtonCallback = function() {
     logMessage("Clicked Line Tool")
     activeTool = lineKey;
-    lineToolTip.isVisible = true;
-    eraserToolTip.isVisible = false;
 }
 
 var penButtonCallback = function() {
     logMessage("Clicked Pen Tool");
     activeTool = penKey;
-    lineToolTip.isVisible = true;
-    eraserToolTip.isVisible = false;
 }
 
 var eraserButtonCallback = function() {
     logMessage("Clicked Eraser Tool");
     activeTool = eraserKey;
-    lineToolTip.isVisible = false;
-    eraserToolTip.isVisible = true;
 }
 
 var statusButtonCallback = function() {
@@ -717,27 +680,21 @@ var brushButtonCallback = function() {
 }
 
 var textureButtonCallback1 = function() {
-    ribbonTexture = new Texture(mosaicURL, scene);
     logMessage("Clicked on a texture option");
 }
 var textureButtonCallback2 = function() {
-    ribbonTexture = new Texture(leafURL, scene);
     logMessage("Clicked on a texture option");
 }
 var textureButtonCallback3 = function() {
-    ribbonTexture = new Texture(marbleURL, scene);
     logMessage("Clicked on a texture option");
 }
 var textureButtonCallback4 = function() {
-    ribbonTexture = new Texture(plasterURL, scene);
     logMessage("Clicked on a texture option");
 }
 var textureButtonCallback5 = function() {
-    ribbonTexture = new Texture(volcanicURL, scene);
     logMessage("Clicked on a texture option");
 }
 var textureButtonCallback6 = function() {
-    ribbonTexture = new Texture(concreteURL, scene);
     logMessage("Clicked on a texture option");
 }
 
@@ -795,14 +752,10 @@ var setupVR = function() {
             leftController = webVRController.mesh;
         } else {
             rightController = webVRController.mesh;
-            lineToolTip.parent = rightController;
-            lineToolTip.position = new Vector3(0, 0, -0.1);
-            eraserToolTip.parent = rightController;
-            eraserToolTip.position = new Vector3(0, 0, -0.1);
         }
 
         // left: Y and right: B
-        webVRController.onSecondaryButtonStateChangedObservable.add((stateObject) => {
+        webVRController.onSecondaryButtonStateChangedObservable.add((stateObject: { pressed: boolean; }) => {
             if (webVRController.hand === 'left') {
                 if (stateObject.pressed === true) {
                     //toggleMenuVisible();
@@ -810,33 +763,33 @@ var setupVR = function() {
                 }
             } else {
                 if (stateObject.pressed === true) {
-                    // logMessage("Pressed B button on right controller");
-                    if (state === "Entry") {
-                        if (activeTool === lineKey) {
-                            logMessage("Start Straight Line");
-                            startStraightLine(getDrawPosition()); // local or world position?
-                        } else if (activeTool === penKey) {
-                            if (stateObject.pressed === true) {
-                                startStroke(getDrawPosition());
-                            }
-                        } else if (activeTool === eraserKey) {
-                            // if (stateObject.pressed === true) {
-                            //     handleErase();
-                            // }
-                            // moved to render loop to be continuous
-                        }
-                    }
+                    logMessage("Pressed B button on right controller");
+                    // if (state === "Entry") {
+                    //     if (activeTool === lineKey) {
+                    //         logMessage("Start Straight Line");
+                    //         startStraightLine(getDrawPosition()); // local or world position?
+                    //     } else if (activeTool === penKey) {
+                    //         if (stateObject.pressed === true) {
+                    //             startStroke(getDrawPosition());
+                    //         }
+                    //     } else if (activeTool === eraserKey) {
+                    //         // if (stateObject.pressed === true) {
+                    //         //     handleErase();
+                    //         // }
+                    //         // moved to render loop to be continuous
+                    //     }
+                    //}
                 } else if (stateObject.pressed === false) {
                     // logMessage("Released B button");
-                    if (state === "DrawingLine") {
-                        if (activeTool === lineKey) {
-                            confirmStraightLine(getDrawPosition());
-                        } 
-                    } else if (state === "DrawingStroke") {
-                        if (activeTool === penKey) {
-                            confirmStroke();
-                        } 
-                    }
+                    // if (state === "DrawingLine") {
+                    //     if (activeTool === lineKey) {
+                    //         confirmStraightLine(getDrawPosition());
+                    //     } 
+                    // } else if (state === "DrawingStroke") {
+                    //     if (activeTool === penKey) {
+                    //         confirmStroke();
+                    //     } 
+                    // }
                 }
 
             }
@@ -844,7 +797,7 @@ var setupVR = function() {
 
         // A button
         // left: X and right: A
-        webVRController.onMainButtonStateChangedObservable.add((stateObject) => {
+        webVRController.onMainButtonStateChangedObservable.add((stateObject: { pressed: boolean; }) => {
             if (webVRController.hand == 'left') {
                 if (stateObject.pressed == true) {
                     logMessage("Pressed X on left controller");
@@ -859,7 +812,7 @@ var setupVR = function() {
         // Triggers
         var leftLastTriggerValue: number;
         var rightLastTriggerValue: number;
-        webVRController.onTriggerStateChangedObservable.add((stateObject) => {
+        webVRController.onTriggerStateChangedObservable.add((stateObject: { value: number; }) => {
             if (webVRController.hand == 'left') {
                 if (leftLastTriggerValue && leftLastTriggerValue < 0.9 && stateObject.value >= 0.9) {
                     logMessage("Pressed Left Primary Trigger at " + webVRController.position.toString());
@@ -880,191 +833,11 @@ var setupVR = function() {
 
 }
 
-var CreateLine = function(start: Vector3, end: Vector3) {
-    var dir = end.subtract(start);
-    var steps = 120;
-    var path = [start];
-    var scale = 0.001;
-    for (var i = 0; i < steps; i++) {
-        var v = 2.0 * Math.PI * i / 20;
-        var point = start.add(dir.scale(i / steps));
-		path.push(point.add(new Vector3(6 * Math.cos(v) * scale, 0, 6 * Math.sin(v) * scale)));
-    }
-    path.push(end);
-
-    var ribbon = MeshBuilder.CreateRibbon("lines", {pathArray: [path], offset: 10, closePath: true}, scene);
-    var mat = new StandardMaterial("mat", scene);
-    if (isBrushMenuVisible) {
-        mat.diffuseTexture = ribbonTexture;
-    } else  {
-        var color = colorPicker1.value;
-        mat.diffuseColor = new Color3(color.r, color.g, color.b);
-        colorPicker1.value;
-    }
-    ribbon.material = mat;
-    return ribbon;
-}
-
-var CreateRibbon = function(path: Vector3[]) {
-    var ribbons = [];
-    for (var i = 0; i < path.length - 1; i++) {
-        var line = RibbonHelper(path[i], path[i+1]);
-        ribbons.push(line);
-    }
-    return ribbons;
-}
-
-var RibbonHelper = function(start: Vector3, end: Vector3) {
-    var dir = end.subtract(start);
-    var steps = 4;
-    var path = [start];
-    var scale = 0.002;
-    for (var i = 0; i < steps; i++) {
-        var v = 2.0 * Math.PI * i / 20;
-        var point = start.add(dir.scale(i / steps));
-		path.push(point.add(new Vector3(6 * Math.cos(v) * scale, i/4 * scale, 6 * Math.sin(v) * scale)));
-    }
-    path.push(end);
-    var toAdd = [];
-    var offset = new Vector3(0.01, 0.01, 0.01);
-    for (var i = 0; i < path.length; i++) {
-        var p = path[path.length - 1 - i];
-        toAdd.push(p.add(offset));
-    }
-    for (var i = 0; i < toAdd.length; i++) {
-        path.push(toAdd[i]);
-    }
-
-    var ribbon = MeshBuilder.CreateRibbon("lines", {pathArray: [path], offset: 10, closePath: true}, scene);
-    var mat = new StandardMaterial("mat", scene);
-    if (isBrushMenuVisible) {
-        mat.diffuseTexture = ribbonTexture;
-    } else  {
-        var color = colorPicker1.value;
-        mat.diffuseColor = new Color3(color.r, color.g, color.b);
-        colorPicker1.value;
-    }
-    ribbon.material = mat;
-    return ribbon;
-}
-
-var startStraightLine = function(startPoint: Vector3) {
-    state = "DrawingLine";
-    straightLineStartingPoint = startPoint;
-}
-
-var showStraightLine = function(endPoint: Vector3) {
-    if (curStraightLine) {
-        curStraightLine.dispose();
-    }
-    curStraightLine = CreateLine(straightLineStartingPoint, endPoint);
-    // logMessage("Showing Straight Line");
-}
-
-var confirmStraightLine = function(endPoint: Vector3) {
-    if (curStraightLine) {
-        allStraightLines.push(curStraightLine);
-        logMessage("Placed a line starting at " + straightLineStartingPoint.toString() + " and ending at " + endPoint.toString());
-    } else {
-        logMessage("Error: tried to confirm new straight line but it was null");
-    }
-    state = "Entry";
-    curStraightLine = CreateLine(new Vector3(10000, 10000, 10000), new Vector3(10001, 10000, 10000))
-}
-
-var startStroke = function(startPoint: Vector3) {
-    state = "DrawingStroke";
-    strokeStartingPoint = startPoint;
-    logMessage("Starting Stroke");
-    curStrokePoints = [startPoint];
-}
-
-var showStroke = function(nextPoint: Vector3) {
-    if (curStroke) {
-        for (var i = 0; i < curStroke.length; i++) {
-            curStroke[i].dispose();
-        }
-        curStroke = [];
-    }
-    var dir = (lastPoint.subtract(nextPoint));
-    var dist = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-    if (dist > 0.05) {
-        lastPoint = nextPoint;
-        curStrokePoints.push(nextPoint);
-    }
-    curStroke = CreateRibbon(curStrokePoints)
-}
-
-var confirmStroke = function() {
-    if (curStroke) {
-        allStrokes.push(curStroke);
-        logMessage("Placed a stroke starting at " + strokeStartingPoint.toString() + " and ending at " + curStrokePoints[curStrokePoints.length - 1].toString());
-    } else {
-        logMessage("Error: tried to confirm new stroke but it was null");
-    }
-    state = "Entry";
-    curStroke = CreateRibbon([new Vector3(100000, 100000, 0)])
-}
-
-var handleErase = function() {
-    for (var i = 0; i < allStraightLines.length; i++) {
-        if (eraserToolTip.intersectsMesh(allStraightLines[i], false)) {
-            var erasedObject = allStraightLines[i];
-            allStraightLines.splice(i, 1);
-            erasedObject.dispose();
-            logMessage("Erased an Object");
-            return;
-        }
-    }
-
-    for (var i = 0; i < allStrokes.length; i++) {
-        for (var j = 0; j < allStrokes[i].length; j++) {
-            if (eraserToolTip.intersectsMesh(allStrokes[i][j], false)) {
-                for (var k = 0; k < allStrokes[i].length; k++) {
-                    var erasedObject = allStrokes[i][k];
-                    erasedObject.dispose();
-                }
-                allStrokes.splice(i, 1);
-                return;
-            }
-        }
-    }
-
-}
-
-var getDrawPosition = function() {
-    if (rightController) {
-        // var m1 = rightController.getWorldMatrix();
-        // var m2 = lineToolTip.getWorldMatrix();
-        // var x = m1.multiply(m2);
-        // x.getTranslation();
-        return rightController.position.add(lineToolTip.position.negate());
-    } else {
-        return new Vector3(0, 0, 0);
-    }
-}
-
-var floorScene = createFloorScene();
-var scene = floorScene;
-openFloorScene();
-
-// var point = new Vector3(1, 2, 1);
-// startStroke(point);
-// showStroke(new Vector3(1, 2, 2));
-// showStroke(new Vector3(1, 3, 1));
-// confirmStroke();
+var scene = createScene();
+openScene();
 
 // Register a render loop to repeatedly render the scene
 engine.runRenderLoop(function () {
-    if (state === "DrawingLine") {
-        showStraightLine(getDrawPosition());  
-    } else if (state === "DrawingStroke") {
-        showStroke(getDrawPosition());
-    }
-
-    if (activeTool === eraserKey) {
-        handleErase();
-    }
     scene.render();
 });
 
