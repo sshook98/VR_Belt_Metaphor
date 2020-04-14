@@ -1,6 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture } from "@babylonjs/core";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController } from "@babylonjs/core";
 import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
@@ -24,11 +24,14 @@ var concreteURL = "./textures/concrete.jpg";
 
 // VR additions
 var vrHelper;
-var leftController: Core.Nullable<Core.AbstractMesh>;
-var rightController: Core.Nullable<Core.AbstractMesh>
 
-var grabbedMesh: Core.Nullable<Core.AbstractMesh>;
+var leftGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
+var rightGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
+var isLeftTriggerDown = false;
+var isRightTriggerDown = false;
+
 var grabbableTag = "Grabbable";
+var grabDistance = 0.1;
 
 var openScene = function() {
     setupVR();
@@ -182,10 +185,9 @@ class Playground {
             }
         }
         
-        return scene;
-        
+        return scene;        
     }
-}
+} 
 
 
 /******* End of the create scene function ******/    
@@ -213,6 +215,8 @@ var logMessage = function(message: string) {
 
     textSlider1.maximum = message.length - 1;
     textSlider1.value = curMessageIndex;
+    
+    console.log(message);
 }
 
 var textSliderCallback1 = function() {
@@ -240,29 +244,8 @@ var setupVR = function() {
     vrHelper = scene.createDefaultVRExperience();
 
     vrHelper.enableInteractions();
-
-    vrHelper.onNewMeshPicked.add((pickingInfo) => {
-        // new mesh pick callback
-        // handle selection?
-    });
-
-    vrHelper.onNewMeshSelected.add(function(mesh) {
-        if (mesh.name.indexOf(grabbableTag) != -1) {
-            grabbedMesh = mesh;
-        }
-    });
-
-    vrHelper.onSelectedMeshUnselected.add(function() {
-        grabbedMesh = null;
-    });
-
+    
     vrHelper.onControllerMeshLoaded.add((webVRController) => {
-        if (webVRController.hand == 'left') {
-            leftController = webVRController.mesh;
-        } else {
-            rightController = webVRController.mesh;
-        }
-
         // left: Y and right: B
         webVRController.onSecondaryButtonStateChangedObservable.add((stateObject: { pressed: boolean; }) => {
             if (webVRController.hand === 'left') {
@@ -295,30 +278,126 @@ var setupVR = function() {
         });
 
         // Triggers
-        var leftLastTriggerValue: number;
-        var rightLastTriggerValue: number;
         webVRController.onTriggerStateChangedObservable.add((stateObject: { value: number; }) => {
-            if (webVRController.hand == "left") {
-                if (grabbedMesh != null) {
-                    logMessage("Grabbed: " + grabbedMesh.name);
-                    var m = webVRController.mesh;
-                    if (m != null) {
-                        m.addChild(grabbedMesh);
-                    } else {
-                        logMessage("WebVR controller didn't have a mesh.");
-                    }
+            if (webVRController.hand == 'left') {
+                if (isLeftTriggerDown && stateObject.value < 0.9) {
+                    handleTriggerReleased(webVRController);
+                } else if (!isLeftTriggerDown && stateObject.value >= 0.9) {
+                    handleTriggerPressed(webVRController);
                 }
             } else {
-                if (rightLastTriggerValue && rightLastTriggerValue < 0.9 && stateObject.value >= 0.9) {
-                    logMessage("Pressed Right Primary Trigger");
-                    // handleTriggerPressed(webVRController.devicePosition.clone());
+                if (isRightTriggerDown && stateObject.value < 0.9) {
+                    handleTriggerReleased(webVRController);
+                } else if (!isRightTriggerDown && stateObject.value >= 0.9) {
+                    handleTriggerPressed(webVRController);
                 }
-                rightLastTriggerValue = stateObject.value;
             }
         });
         
     });
 
+}
+
+var handleTriggerPressed = function(webVRController: Core.WebVRController) {
+    var pos = webVRController.devicePosition;
+    if (webVRController.hand == 'left') {
+        isLeftTriggerDown = true;
+        // check if there is a grabbable mesh nearby
+        var meshes = scene.meshes;
+        for (var i = 0; i < meshes.length; i++) {
+            var mesh = meshes[i];
+            if (isMeshGrabbable(mesh)) {
+                var otherPos = mesh.position;
+                var dist = Vector3.Distance(pos, otherPos);
+                if (dist < grabDistance) {
+                    if (leftGrabbedMesh != null) {
+                        if (webVRController != null && webVRController.mesh != null) {
+                            if (webVRController.mesh.getChildMeshes().includes(leftGrabbedMesh)) {
+                                webVRController.mesh.removeChild(leftGrabbedMesh);
+    
+                            }
+                        } else {
+                            logMessage("Error: leftController was null");
+                        }
+                        leftGrabbedMesh = null;
+                    }
+    
+                    leftGrabbedMesh = mesh;
+                    if (webVRController != null && webVRController.mesh != null) {
+                        webVRController.mesh.addChild(leftGrabbedMesh);
+                    } else {
+                        logMessage("Error: leftController was null");
+                    }
+                    logMessage("Got a mesh that is " + dist + " away");
+                    return;
+                }
+            }
+        }
+    } else {
+        isRightTriggerDown = true;
+        var meshes = scene.meshes;
+        for (var i = 0; i < meshes.length; i++) {
+            var mesh = meshes[i];
+            if (isMeshGrabbable(mesh)) {
+                var otherPos = mesh.position;
+                var dist = Vector3.Distance(pos, otherPos);
+                if (dist < grabDistance) {
+                    if (rightGrabbedMesh != null) {
+                        if (webVRController != null && webVRController.mesh != null) {
+                            if (webVRController.mesh.getChildMeshes().includes(rightGrabbedMesh)) {
+                                webVRController.mesh.removeChild(rightGrabbedMesh);
+                            }
+                        } else {
+                            logMessage("Error: rightController was null");
+                        }
+                        rightGrabbedMesh = null;
+                    }
+    
+                    rightGrabbedMesh = mesh;
+                    if (webVRController != null && webVRController.mesh != null) {
+                        webVRController.mesh.addChild(rightGrabbedMesh)
+                    } else {
+                        logMessage("Error: rightController was null");
+                    }
+                }
+            }
+            
+        }
+    }
+}
+
+var handleTriggerReleased = function(webVRController: Core.WebVRController) {
+    if (webVRController.hand == 'left') {
+        isLeftTriggerDown = false;
+        if (webVRController != null) {
+            if (leftGrabbedMesh != null && webVRController.mesh != null) {
+                webVRController.mesh.removeChild(leftGrabbedMesh);
+                leftGrabbedMesh = null;
+            }
+        } else {
+            logMessage("Error: leftController was null");
+        }
+    } else {
+        isRightTriggerDown = false;
+        if (webVRController != null) {
+            if (rightGrabbedMesh != null && webVRController.mesh != null) {
+                webVRController.mesh.removeChild(rightGrabbedMesh);
+                rightGrabbedMesh = null;
+            }
+        } else {
+            logMessage("Error: rightController was null");
+        }
+    }
+}
+
+var isMeshGrabbable = function(mesh: Core.AbstractMesh) {
+    if (mesh == null) {
+        return false;
+    }
+    if (mesh == leftGrabbedMesh || mesh == rightGrabbedMesh) {
+        return false;
+    }
+    return mesh.name.indexOf(grabbableTag) != -1;
 }
 
 var scene = createScene();
