@@ -1,6 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController } from "@babylonjs/core";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound } from "@babylonjs/core";
 import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
@@ -21,6 +21,14 @@ var leafURL = "./textures/Leaf.jpg";
 var volcanicURL = "./textures/volcanic.jpg";
 var plasterURL = "./textures/plaster.jpg";
 var concreteURL = "./textures/concrete.jpg";
+
+// Sound URLs
+var grabURL = "./textures/grab.wav";
+var releaseURL = "./textures/release.TODO";
+
+// Sounds
+var grabSound: Core.Sound;
+var releaseSound;
 
 // VR additions
 var vrHelper;
@@ -184,6 +192,10 @@ class Playground {
                 sphere.position = new Vector3(x, y + i * scale, z + j * scale);
             }
         }
+
+        grabSound = new Sound("grabSound", grabURL, scene, null, {autoplay: false, loop: false});
+        releaseSound = new Sound("releaseSound", releaseURL, scene, null, {autoplay: false, loop: false});
+        
         
         return scene;        
     }
@@ -325,6 +337,7 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
                     leftGrabbedMesh = mesh;
                     if (webVRController != null && webVRController.mesh != null) {
                         webVRController.mesh.addChild(leftGrabbedMesh);
+                        grabSound.play();
                     } else {
                         logMessage("Error: leftController was null");
                     }
