@@ -1,6 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound } from "@babylonjs/core";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera } from "@babylonjs/core";
 import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
@@ -21,6 +21,8 @@ var leafURL = "./textures/Leaf.jpg";
 var volcanicURL = "./textures/volcanic.jpg";
 var plasterURL = "./textures/plaster.jpg";
 var concreteURL = "./textures/concrete.jpg";
+var groundTexture = "./Textures/ground.jpg";
+var skyTexture = "./Textures/sky";
 
 // Sound URLs
 var grabURL = "./textures/grab.wav";
@@ -33,6 +35,7 @@ var releaseSound;
 // VR additions
 var vrHelper;
 
+var belt: Core.Nullable<Core.AbstractMesh>;
 var leftGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
 var rightGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
 var isLeftTriggerDown = false;
@@ -59,11 +62,24 @@ class Playground {
         // Add lights to the scene
         var light1 = new Core.HemisphericLight("light1", new Core.Vector3(1, 1, 0), scene);
 
-        var ground = Core.MeshBuilder.CreateGround("ground", {width: 10, height: 10}, scene);
-        ground.position = new Vector3(0, -0.01, 0);
+        var ground = Core.MeshBuilder.CreateGround("ground", {width: 30, height: 30}, scene);
+        var ground_mat = new StandardMaterial("ground_mat", scene);
+        ground_mat.diffuseTexture = new Texture(groundTexture, scene);
+        ground.material = ground_mat;
+        ground.position = new Vector3(0, -1.5, 0);
+
+        var skybox = MeshBuilder.CreateBox("skyBox", {size:500.0}, scene);
+        skybox.position.y += (250 - 1 + ground.position.y);
+        var skyboxMaterial = new StandardMaterial("skyBox", scene);
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.reflectionTexture = new CubeTexture(skyTexture, scene);
+        skyboxMaterial.reflectionTexture.coordinatesMode = Texture.SKYBOX_MODE;
+        skyboxMaterial.diffuseColor = new Color3(0, 0, 0);
+        skyboxMaterial.specularColor = new Color3(0, 0, 0);
+        skybox.material = skyboxMaterial;
 
         var debugPlane = MeshBuilder.CreatePlane("debugPlane", {size: 1.5});
-        debugPlane.position = new Vector3(-1.5, 0, 2);
+        debugPlane.position = new Vector3(-1.5, ground.position.y + 0.5, 2);
         debugPlane.rotate(new Vector3(1, 0, 0), Math.PI / 2);
         debugPlane.rotate(new Vector3(0, 1, 0), Math.PI * 3 / 2, Core.Space.WORLD);
 
@@ -196,7 +212,26 @@ class Playground {
         grabSound = new Sound("grabSound", grabURL, scene, null, {autoplay: false, loop: false});
         releaseSound = new Sound("releaseSound", releaseURL, scene, null, {autoplay: false, loop: false});
         
+        //Belt
+        var belt_mat = new StandardMaterial("belt_mat", scene);
+        belt_mat.diffuseColor = new Color3(134/255.0, 69/255.0, 0);
+ 
+        var path = [];
         
+        var segLength = .1;
+        var numSides = 12;
+        
+        for(var i = 0; i < 2; i++) {
+            var x = i * segLength;
+            var y = 0;
+            var z = 0;
+            path.push(new Vector3(x, y, z));
+            
+        }
+        belt = MeshBuilder.CreateTube("belt", {path: path, radius: 0.2, sideOrientation: Mesh.DOUBLESIDE, updatable: true, tessellation: numSides}, scene);
+        belt.material = belt_mat;
+        belt.rotate(Axis.Z, Math.PI / 2, Space.WORLD);
+
         return scene;        
     }
 } 
@@ -256,6 +291,10 @@ var setupVR = function() {
     vrHelper = scene.createDefaultVRExperience();
 
     vrHelper.enableInteractions();
+
+    if (belt != null) {
+        belt.position = vrHelper.webVRCamera.devicePosition;
+    }
     
     vrHelper.onControllerMeshLoaded.add((webVRController) => {
         // left: Y and right: B
