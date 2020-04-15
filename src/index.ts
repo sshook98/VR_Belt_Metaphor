@@ -33,7 +33,7 @@ var grabSound: Core.Sound;
 var releaseSound;
 
 // VR additions
-var vrHelper;
+var vrHelper: Core.VRExperienceHelper;
 
 var belt: Core.Nullable<Core.AbstractMesh>;
 var leftGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
@@ -292,9 +292,13 @@ var setupVR = function() {
 
     vrHelper.enableInteractions();
 
-    if (belt != null) {
-        belt.position = vrHelper.webVRCamera.devicePosition;
-    }
+    scene.onBeforeRenderObservable.add(()=>{
+        if (belt != null) {
+            belt.position = vrHelper.webVRCamera.devicePosition;
+            belt.position.y -= 0.7;
+            // belt.position.z -= 0.2;
+        }
+    });
     
     vrHelper.onControllerMeshLoaded.add((webVRController) => {
         // left: Y and right: B
