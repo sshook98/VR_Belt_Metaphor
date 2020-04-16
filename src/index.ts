@@ -37,6 +37,7 @@ var vrHelper: Core.VRExperienceHelper;
 
 var belt: Belt;
 var belt_height = 0.1;
+var belt_offset_y = 0.7;
 // var beltObjects: GrabbableObject[];
 var shrinkingObjects: GrabbableObject[] = [];
 var growingObjects: GrabbableObject[] = [];
@@ -72,18 +73,23 @@ class Belt {
     belt_vertices: Vector3[];
     beltObjects: GrabbableObject[];
     extraBeltObjects: GrabbableObject[];
+    belt_origin: Vector3;
     constructor(belt_mesh: Core.AbstractMesh, numSides: number, belt_radius: number) {
         this.belt_mesh = belt_mesh;
         this.belt_pushedIndex = [];
         this.belt_vertices = [];
         this.beltObjects = [];
         this.extraBeltObjects = [];
+        this.belt_origin = new Vector3(belt_mesh.position.x, belt_mesh.position.y, belt_mesh.position.z);
 
         for (var i = 0; i < numSides; i++) {
             var angle = i * Math.PI * 2 / numSides;
-            var x = belt_mesh.position.x + belt_radius * Math.sin(angle);
-            var y = belt_mesh.position.y;
-            var z = belt_mesh.position.z + belt_radius * Math.cos(angle);
+            // var x = belt_mesh.position.x + belt_radius * Math.sin(angle);
+            // var y = belt_mesh.position.y;
+            // var z = belt_mesh.position.z + belt_radius * Math.cos(angle);
+            var x = belt_radius * Math.sin(angle);
+            var y = 0;
+            var z = belt_radius * Math.cos(angle);
             this.belt_vertices.push(new Vector3(x, y, z));
         }
     }
@@ -338,11 +344,30 @@ var setupVR = function() {
 
     scene.onBeforeRenderObservable.add(()=>{
         if (belt != null && vrHelper.webVRCamera) {
-            belt.belt_mesh.position = vrHelper.webVRCamera.devicePosition;
-            belt.belt_mesh.position.y -= 0.7;
-            // belt.position.z -= 0.2;
+            belt.belt_mesh.position = vrHelper.webVRCamera.devicePosition.clone();
+            belt.belt_mesh.position.y -= belt_offset_y;
+            belt.beltObjects.forEach((object, index) => {
+                object.mesh.position = vrHelper.webVRCamera.devicePosition.clone();
+                object.mesh.position.x += belt.belt_vertices[belt.belt_pushedIndex[index]].x;
+                object.mesh.position.y -= belt_offset_y;
+                object.mesh.position.z += belt.belt_vertices[belt.belt_pushedIndex[index]].z;
+            });
         }
     });
+
+    // scene.registerAfterRender(function () {
+    //     if (belt != null && vrHelper.webVRCamera) {
+    //         belt.belt_mesh.position = vrHelper.webVRCamera.devicePosition.clone();
+    //         belt.belt_mesh.position.y -= belt_offset_y;
+    //         belt.beltObjects.forEach((object, index) => {
+    //             object.mesh.position = vrHelper.webVRCamera.devicePosition.clone();
+    //             object.mesh.position.x += belt.belt_vertices[belt.belt_pushedIndex[index]].x;
+    //             object.mesh.position.y -= belt_offset_y;
+    //             object.mesh.position.z += belt.belt_vertices[belt.belt_pushedIndex[index]].z;
+    //         });
+    //     }
+
+    // })
     
     vrHelper.onControllerMeshLoaded.add((webVRController) => {
         // left: Y and right: B
@@ -471,9 +496,10 @@ var pushToBelt = function(grabbedMesh: Core.AbstractMesh) {
     var minDistance = 999999;
     for (var i = 0; i < belt.belt_vertices.length; i++) {
         if (belt.belt_pushedIndex.indexOf(i) == -1) {
-            var curr = Math.pow(belt.belt_vertices[i].x - grabbedMesh.position.x, 2) + 
-                Math.pow(belt.belt_vertices[i].y - grabbedMesh.position.y, 2) +
-                Math.pow(belt.belt_vertices[i].z - grabbedMesh.position.z, 2);
+            var tip_pos = belt.belt_mesh.position.clone().add(belt.belt_vertices[i]);
+            var curr = Math.pow(tip_pos.x - grabbedMesh.position.x, 2) + 
+                Math.pow(tip_pos.y - grabbedMesh.position.y, 2) +
+                Math.pow(tip_pos.z - grabbedMesh.position.z, 2);
             if (curr < minDistance) 
             {
                 minDistance = curr;
@@ -481,9 +507,10 @@ var pushToBelt = function(grabbedMesh: Core.AbstractMesh) {
             }
         }
     }
-    if (minIndex != -1 && minDistance < 0.01) {
-        grabbedMesh.position = belt.belt_vertices[minIndex];
-        shrinkingObjects.push(new GrabbableObject(grabbedMesh));
+    if (minIndex != -1 && minDistance < 5) {
+        belt.beltObjects.push(new GrabbableObject(grabbedMesh));
+        // belt.belt_mesh.addChild(grabbedMesh);
+        belt.belt_pushedIndex.push(minIndex);
     }
 }
 
