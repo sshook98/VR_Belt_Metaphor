@@ -1,6 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera } from "@babylonjs/core";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix } from "@babylonjs/core";
 import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
@@ -39,8 +39,8 @@ var belt: Belt;
 var belt_height = 0.1;
 var belt_offset_y = 0.7;
 // var beltObjects: GrabbedObject[];
-var shrinkingObjects: GrabbedObject[] = [];
-var growingObjects: GrabbedObject[] = [];
+// var shrinkingObjects: GrabbedObject[] = [];
+// var growingObjects: GrabbedObject[] = [];
 // var outsideObjects: GrabbedObject[] = [];
 // var extraBeltObjects: GrabbedObject[];
 
@@ -59,10 +59,12 @@ var openScene = function() {
 class GrabbedObject {
     mesh: Core.AbstractMesh;
     initialBoundingMaxLength: number;
+    scaleFactor: number;
     attachedToBelt: boolean;
     constructor(mesh:Core.AbstractMesh, ) {
         this.mesh = mesh;
         this.initialBoundingMaxLength = Math.max(mesh._boundingInfo?.maximum.x!, mesh._boundingInfo?.maximum.y!, mesh._boundingInfo?.maximum.z!);
+        this.scaleFactor = 1.0;
         this.attachedToBelt = false;
     }
 }
@@ -72,6 +74,8 @@ class Belt {
     belt_pushedIndex: number[]; //if ball attached to position 2, belt_index: [2], beltObjects: [ball] -> ball at index 0 of beltObjects
     belt_vertices: Vector3[];
     beltObjects: GrabbedObject[];
+    shrinkingObjects: GrabbedObject[];
+    growingObjects: GrabbedObject[];
     extraBeltObjects: GrabbedObject[];
     belt_origin: Vector3;
     constructor(belt_mesh: Core.AbstractMesh, numSides: number, belt_radius: number) {
@@ -79,6 +83,8 @@ class Belt {
         this.belt_pushedIndex = [];
         this.belt_vertices = [];
         this.beltObjects = [];
+        this.shrinkingObjects = [];
+        this.growingObjects = [];
         this.extraBeltObjects = [];
         this.belt_origin = new Vector3(belt_mesh.position.x, belt_mesh.position.y, belt_mesh.position.z);
 
@@ -247,10 +253,10 @@ class Playground {
         var x = 0.5;
         var y = 0.5;
         var z = 1.5;
-        var scale = 0.2;
+        var scale = 1;
         for (var i = 0; i < rows; i++) {
             for (var j = 0; j < columns; j++) {
-                var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere", {diameter: 0.1}, scene);
+                var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere", {diameter: 0.5}, scene);
                 sphere.position = new Vector3(x, y + i * scale, z + j * scale);
             }
         }
@@ -349,23 +355,19 @@ var setupVR = function() {
                 object.mesh.position.x += belt.belt_vertices[belt.belt_pushedIndex[index]].x;
                 object.mesh.position.y -= belt_offset_y;
                 object.mesh.position.z += belt.belt_vertices[belt.belt_pushedIndex[index]].z;
+                
+                if (object.initialBoundingMaxLength * object.scaleFactor > belt_height) {
+                    object.scaleFactor -= 0.05;
+                    object.mesh.scaling.x = object.scaleFactor;
+                    object.mesh.scaling.y = object.scaleFactor;
+                    object.mesh.scaling.z = object.scaleFactor;
+                    object.mesh.computeWorldMatrix();
+                    object.mesh.refreshBoundingInfo();
+                }
+                
             });
         }
     });
-
-    // scene.registerAfterRender(function () {
-    //     if (belt != null && vrHelper.webVRCamera) {
-    //         belt.belt_mesh.position = vrHelper.webVRCamera.devicePosition.clone();
-    //         belt.belt_mesh.position.y -= belt_offset_y;
-    //         belt.beltObjects.forEach((object, index) => {
-    //             object.mesh.position = vrHelper.webVRCamera.devicePosition.clone();
-    //             object.mesh.position.x += belt.belt_vertices[belt.belt_pushedIndex[index]].x;
-    //             object.mesh.position.y -= belt_offset_y;
-    //             object.mesh.position.z += belt.belt_vertices[belt.belt_pushedIndex[index]].z;
-    //         });
-    //     }
-
-    // })
     
     vrHelper.onControllerMeshLoaded.add((webVRController) => {
         // left: Y and right: B
