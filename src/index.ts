@@ -38,11 +38,11 @@ var vrHelper: Core.VRExperienceHelper;
 var belt: Belt;
 var belt_height = 0.1;
 var belt_offset_y = 0.7;
-// var beltObjects: GrabbableObject[];
-var shrinkingObjects: GrabbableObject[] = [];
-var growingObjects: GrabbableObject[] = [];
-var outsideObjects: GrabbableObject[] = [];
-// var extraBeltObjects: GrabbableObject[];
+// var beltObjects: GrabbedObject[];
+var shrinkingObjects: GrabbedObject[] = [];
+var growingObjects: GrabbedObject[] = [];
+// var outsideObjects: GrabbedObject[] = [];
+// var extraBeltObjects: GrabbedObject[];
 
 var leftGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
 var rightGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
@@ -56,7 +56,7 @@ var openScene = function() {
     setupVR();
 }
 
-class GrabbableObject {
+class GrabbedObject {
     mesh: Core.AbstractMesh;
     initialBoundingMaxLength: number;
     attachedToBelt: boolean;
@@ -71,8 +71,8 @@ class Belt {
     belt_mesh: Core.AbstractMesh;
     belt_pushedIndex: number[]; //if ball attached to position 2, belt_index: [2], beltObjects: [ball] -> ball at index 0 of beltObjects
     belt_vertices: Vector3[];
-    beltObjects: GrabbableObject[];
-    extraBeltObjects: GrabbableObject[];
+    beltObjects: GrabbedObject[];
+    extraBeltObjects: GrabbedObject[];
     belt_origin: Vector3;
     constructor(belt_mesh: Core.AbstractMesh, numSides: number, belt_radius: number) {
         this.belt_mesh = belt_mesh;
@@ -252,8 +252,6 @@ class Playground {
             for (var j = 0; j < columns; j++) {
                 var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere", {diameter: 0.1}, scene);
                 sphere.position = new Vector3(x, y + i * scale, z + j * scale);
-                var sphere_object = new GrabbableObject(sphere);
-                outsideObjects.push(sphere_object);
             }
         }
 
@@ -491,7 +489,7 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
     }
 }
 
-var pushToBelt = function(grabbedMesh: Core.AbstractMesh, webVRController: Core.WebVRController) {
+var pushToShrinking = function(grabbedMesh: Core.AbstractMesh, webVRController: Core.WebVRController) {
     var minIndex = -1;
     var minDistance = 999999;
     for (var i = 0; i < belt.belt_vertices.length; i++) {
@@ -508,7 +506,7 @@ var pushToBelt = function(grabbedMesh: Core.AbstractMesh, webVRController: Core.
         }
     }
     if (minIndex != -1 && Math.sqrt(minDistance) < 0.25) {
-        belt.beltObjects.push(new GrabbableObject(grabbedMesh));
+        belt.beltObjects.push(new GrabbedObject(grabbedMesh));
         belt.belt_pushedIndex.push(minIndex);
     }
 }
@@ -518,7 +516,7 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
         isLeftTriggerDown = false;
         if (webVRController != null) {
             if (leftGrabbedMesh != null && webVRController.mesh != null) {
-                pushToBelt(leftGrabbedMesh, webVRController);
+                pushToShrinking(leftGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(leftGrabbedMesh);
                 leftGrabbedMesh = null;
             }
@@ -529,7 +527,7 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
         isRightTriggerDown = false;
         if (webVRController != null) {
             if (rightGrabbedMesh != null && webVRController.mesh != null) {
-                pushToBelt(rightGrabbedMesh, webVRController);
+                pushToShrinking(rightGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(rightGrabbedMesh);
                 rightGrabbedMesh = null;
             }
