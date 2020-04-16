@@ -473,7 +473,7 @@ var pushToBelt = function(grabbedMesh: Core.AbstractMesh) {
         if (belt.belt_pushedIndex.indexOf(i) == -1) {
             var curr = Math.pow(belt.belt_vertices[i].x - grabbedMesh.position.x, 2) + 
                 Math.pow(belt.belt_vertices[i].y - grabbedMesh.position.y, 2) +
-                Math.pow(belt.belt_vertices[i].x - grabbedMesh.position.x, 2);
+                Math.pow(belt.belt_vertices[i].z - grabbedMesh.position.z, 2);
             if (curr < minDistance) 
             {
                 minDistance = curr;
