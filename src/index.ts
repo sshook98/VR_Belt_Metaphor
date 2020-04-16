@@ -491,15 +491,15 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
     }
 }
 
-var pushToBelt = function(grabbedMesh: Core.AbstractMesh) {
+var pushToBelt = function(grabbedMesh: Core.AbstractMesh, webVRController: Core.WebVRController) {
     var minIndex = -1;
     var minDistance = 999999;
     for (var i = 0; i < belt.belt_vertices.length; i++) {
         if (belt.belt_pushedIndex.indexOf(i) == -1) {
             var tip_pos = belt.belt_mesh.position.clone().add(belt.belt_vertices[i]);
-            var curr = Math.pow(tip_pos.x - grabbedMesh.position.x, 2) + 
-                Math.pow(tip_pos.y - grabbedMesh.position.y, 2) +
-                Math.pow(tip_pos.z - grabbedMesh.position.z, 2);
+            var curr = Math.pow(tip_pos.x - webVRController.devicePosition.x, 2) + 
+                Math.pow(tip_pos.y - webVRController.devicePosition.y, 2) +
+                Math.pow(tip_pos.z - webVRController.devicePosition.z, 2);
             if (curr < minDistance) 
             {
                 minDistance = curr;
@@ -507,9 +507,8 @@ var pushToBelt = function(grabbedMesh: Core.AbstractMesh) {
             }
         }
     }
-    if (minIndex != -1 && minDistance < 5) {
+    if (minIndex != -1 && Math.sqrt(minDistance) < 0.25) {
         belt.beltObjects.push(new GrabbableObject(grabbedMesh));
-        // belt.belt_mesh.addChild(grabbedMesh);
         belt.belt_pushedIndex.push(minIndex);
     }
 }
@@ -519,7 +518,7 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
         isLeftTriggerDown = false;
         if (webVRController != null) {
             if (leftGrabbedMesh != null && webVRController.mesh != null) {
-                pushToBelt(leftGrabbedMesh);
+                pushToBelt(leftGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(leftGrabbedMesh);
                 leftGrabbedMesh = null;
             }
@@ -530,7 +529,7 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
         isRightTriggerDown = false;
         if (webVRController != null) {
             if (rightGrabbedMesh != null && webVRController.mesh != null) {
-                pushToBelt(rightGrabbedMesh);
+                pushToBelt(rightGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(rightGrabbedMesh);
                 rightGrabbedMesh = null;
             }
