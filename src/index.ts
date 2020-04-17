@@ -38,7 +38,8 @@ var vrHelper: Core.VRExperienceHelper;
 var belt: Belt;
 var belt_height = 0.1;
 var belt_offset_y = 0.7;
-var releaseObject: GrabbedObject | null;
+var leftReleaseObject: GrabbedObject | null;
+var rightReleaseObject: GrabbedObject | null;
 
 var leftGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
 var rightGrabbedMesh: Core.Nullable<Core.AbstractMesh>;
@@ -357,14 +358,24 @@ var setupVR = function() {
                 
             });
         }
-        if (releaseObject != null) {
-            if (releaseObject.mesh.scaling.x < 1) {
-                releaseObject.mesh.scaling.x += 0.05;
-                releaseObject.mesh.scaling.y += 0.05;
-                releaseObject.mesh.scaling.z += 0.05;
+        if (leftReleaseObject != null) {
+            if (leftReleaseObject.mesh.scaling.x < 1) {
+                leftReleaseObject.mesh.scaling.x += 0.05;
+                leftReleaseObject.mesh.scaling.y += 0.05;
+                leftReleaseObject.mesh.scaling.z += 0.05;
             }
             else {
-                releaseObject = null;
+                leftReleaseObject = null;
+            }
+        } 
+        if (rightReleaseObject != null) {
+            if (rightReleaseObject.mesh.scaling.x < 1) {
+                rightReleaseObject.mesh.scaling.x += 0.05;
+                rightReleaseObject.mesh.scaling.y += 0.05;
+                rightReleaseObject.mesh.scaling.z += 0.05;
+            }
+            else {
+                rightReleaseObject = null;
             }
         } 
     });
@@ -452,7 +463,7 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
                     leftGrabbedMesh = mesh;
                     if (webVRController != null && webVRController.mesh != null) {
                         if (isMeshFromBelt(mesh)) {
-                            releaseFromBelt(mesh, webVRController);
+                            releaseFromBelt(mesh, "left");
                         }
                         webVRController.mesh.addChild(leftGrabbedMesh);
                         grabSound.play();
@@ -490,7 +501,7 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
                     rightGrabbedMesh = mesh;
                     if (webVRController != null && webVRController.mesh != null) {
                         if (isMeshFromBelt(mesh)) {
-                            releaseFromBelt(mesh, webVRController);
+                            releaseFromBelt(mesh, "right");
                         }
                         webVRController.mesh.addChild(rightGrabbedMesh)
                         grabSound.play();
@@ -527,12 +538,16 @@ var pushToBelt = function(grabbedMesh: Core.AbstractMesh, webVRController: Core.
     }
 }
 
-var releaseFromBelt = function(grabbedMesh: Core.AbstractMesh, webVRController: Core.WebVRController) {
+var releaseFromBelt = function(grabbedMesh: Core.AbstractMesh, leftOrRight: string) {
     var index = 0;
     while (index < belt.beltObjects.length) {
         if (grabbedMesh.name === belt.beltObjects[index].mesh.name) {
             grabbedMesh.name = grabbedMesh.name.substring(0, grabbedMesh.name.length - beltTag.length);
-            releaseObject = belt.beltObjects[index];
+            if (leftOrRight === "left") {
+                leftReleaseObject = belt.beltObjects[index];
+            } else if (leftOrRight === "right") {
+                rightReleaseObject = belt.beltObjects[index];
+            }
             belt.beltObjects.splice(index, 1);
             belt.belt_pushedIndex.splice(index, 1);
             break;
@@ -546,11 +561,6 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
         isLeftTriggerDown = false;
         if (webVRController != null) {
             if (leftGrabbedMesh != null && webVRController.mesh != null) {
-                // if (isMeshFromBelt(leftGrabbedMesh)) {
-                //     releaseFromBelt(leftGrabbedMesh, webVRController);
-                // } else {
-                //     pushToBelt(leftGrabbedMesh, webVRController);
-                // }
                 pushToBelt(leftGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(leftGrabbedMesh);
                 leftGrabbedMesh = null;
@@ -562,11 +572,6 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
         isRightTriggerDown = false;
         if (webVRController != null) {
             if (rightGrabbedMesh != null && webVRController.mesh != null) {
-                // if (isMeshFromBelt(rightGrabbedMesh)) {
-                //     releaseFromBelt(rightGrabbedMesh, webVRController);
-                // } else {
-                //     pushToBelt(rightGrabbedMesh, webVRController);
-                // }
                 pushToBelt(rightGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(rightGrabbedMesh);
                 rightGrabbedMesh = null;
