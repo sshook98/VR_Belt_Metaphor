@@ -1,6 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix, SceneLoader } from "@babylonjs/core";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix, SceneLoader, Quaternion } from "@babylonjs/core";
 import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
@@ -23,6 +23,7 @@ var plasterURL = "./textures/plaster.jpg";
 var concreteURL = "./textures/concrete.jpg";
 var groundTexture = "./Textures/ground.jpg";
 var skyTexture = "./Textures/sky";
+var woodenStaffURL = "./textures/WoodenStaff.png";
 
 // Sound URLs
 var grabURL = "./audio/grab.wav";
@@ -239,19 +240,19 @@ class Playground {
         debugTexture.addControl(textSlider1);
 
         // add test spheres
-        var rows = 2;
-        var columns = 2;
+        var rows = 4;
+        var columns = 4;
         var x = 0.5;
         var y = 0.5;
         var z = 1.5;
-        var spacing = 1
-        var scale = 1;
+        var spacing = 0.5
+        var scale = 0.5;
 
         for (var i = 0; i < rows; i++) {
             for (var j = 0; j < columns; j++) {
                 var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere " + i + " " + j, {diameter: scale / 2}, scene);
                 sphere.position = new Vector3(x, y + i * spacing, z + j * spacing);
-                var val = Math.random() * scale + scale / 2
+                var val = Math.random() * scale + scale / 4
                 sphere.scaling = new Vector3(val, val, val)
             }
         }
@@ -259,7 +260,7 @@ class Playground {
         var grabVolume = 1;
         var releaseVolume = 1;
         grabSound = new Sound("grabSound", grabURL, scene, null, {autoplay: false, loop: false, volume: grabVolume});
-        releaseSound = new Sound("releaseSound", releaseURL, scene, null, {autoplay: false, loop: false, volume: releaseVolume});
+        releaseSound = new Sound("releaseSound", releaseURL, scene, null, {autoplay: true, loop: false, volume: releaseVolume});
         
         //Belt
         var belt_mat = new StandardMaterial("belt_mat", scene);
@@ -269,7 +270,7 @@ class Playground {
         
         var segLength = belt_height;
         var numSides = 8;
-        var belt_radius = 0.25;
+        var belt_radius = 0.2;
         
         for(var i = 0; i < 2; i++) {
             var x = i * segLength;
@@ -283,13 +284,28 @@ class Playground {
         belt_mesh.rotate(Axis.Z, Math.PI / 2, Space.WORLD);
         belt = new Belt(belt_mesh, numSides, belt_radius);
 
-        // Other Objects
-        var obj;
-        obj = SceneLoader.ImportMesh("", "https://models.babylonjs.com/", "emoji_heart.glb", scene, function(meshes) {
-            var bunny = meshes[0];
-            bunny.position = new Vector3(1, 2, 3);
-        });
+        // Player body 
+        var body = MeshBuilder.CreateSphere("body", {diameter: 0.2}, scene);
+        belt_mesh.addChild(body);
+        body.position = Vector3.Zero();
+        body.scaling = new Vector3(1.6, 5, 1.2)
 
+        // Other Objects
+        var staffLength = 1.5
+        var staffHandle = MeshBuilder.CreateCylinder(grabbableTag + "staffHandle",  {diameter: 0.07, tessellation: 8, height: staffLength / 4}, scene)
+        staffHandle.position = new Vector3(0, 1, 2.5);
+        staffHandle.rotate(new Vector3(0, 0, 1), Math.PI / 2, Core.Space.WORLD);
+        var handleMaterial = new StandardMaterial("handleMat", scene);
+        handleMaterial.diffuseTexture = new Texture(mosaicURL, scene);
+        staffHandle.material = handleMaterial;
+
+        var staff = MeshBuilder.CreateCylinder("staff", {diameter: 0.05, tessellation: 8, height: staffLength})
+        staffHandle.addChild(staff);
+        staff.position = Vector3.Zero();
+        staff.rotate(new Vector3(0, 0, 1), Math.PI / 2, Core.Space.WORLD);
+        var staffMaterial = new StandardMaterial("staffMat", scene);
+        staffMaterial.diffuseTexture = new Texture(woodenStaffURL, scene);
+        staff.material = staffMaterial;
         return scene;        
     }
 } 
