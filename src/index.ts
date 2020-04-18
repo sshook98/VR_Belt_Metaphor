@@ -1,6 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix } from "@babylonjs/core";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix, SceneLoader } from "@babylonjs/core";
 import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
@@ -25,12 +25,12 @@ var groundTexture = "./Textures/ground.jpg";
 var skyTexture = "./Textures/sky";
 
 // Sound URLs
-var grabURL = "./textures/grab.wav";
-var releaseURL = "./textures/release.TODO";
+var grabURL = "./audio/grab.wav";
+var releaseURL = "./audio/release.wav";
 
 // Sounds
 var grabSound: Core.Sound;
-var releaseSound;
+var releaseSound: Core.Sound;
 
 // VR additions
 var vrHelper: Core.VRExperienceHelper;
@@ -239,21 +239,27 @@ class Playground {
         debugTexture.addControl(textSlider1);
 
         // add test spheres
-        var rows = 5;
-        var columns = 5;
+        var rows = 2;
+        var columns = 2;
         var x = 0.5;
         var y = 0.5;
         var z = 1.5;
+        var spacing = 1
         var scale = 1;
+
         for (var i = 0; i < rows; i++) {
             for (var j = 0; j < columns; j++) {
-                var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere " + i + " " + j, {diameter: 0.5}, scene);
-                sphere.position = new Vector3(x, y + i * scale, z + j * scale);
+                var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere " + i + " " + j, {diameter: scale / 2}, scene);
+                sphere.position = new Vector3(x, y + i * spacing, z + j * spacing);
+                var val = Math.random() * scale + scale / 2
+                sphere.scaling = new Vector3(val, val, val)
             }
         }
 
-        grabSound = new Sound("grabSound", grabURL, scene, null, {autoplay: false, loop: false});
-        releaseSound = new Sound("releaseSound", releaseURL, scene, null, {autoplay: false, loop: false});
+        var grabVolume = 1;
+        var releaseVolume = 1;
+        grabSound = new Sound("grabSound", grabURL, scene, null, {autoplay: false, loop: false, volume: grabVolume});
+        releaseSound = new Sound("releaseSound", releaseURL, scene, null, {autoplay: false, loop: false, volume: releaseVolume});
         
         //Belt
         var belt_mat = new StandardMaterial("belt_mat", scene);
@@ -263,7 +269,7 @@ class Playground {
         
         var segLength = belt_height;
         var numSides = 8;
-        var belt_radius = 0.2;
+        var belt_radius = 0.25;
         
         for(var i = 0; i < 2; i++) {
             var x = i * segLength;
@@ -276,6 +282,13 @@ class Playground {
         belt_mesh.material = belt_mat;
         belt_mesh.rotate(Axis.Z, Math.PI / 2, Space.WORLD);
         belt = new Belt(belt_mesh, numSides, belt_radius);
+
+        // Other Objects
+        var obj;
+        obj = SceneLoader.ImportMesh("", "https://models.babylonjs.com/", "emoji_heart.glb", scene, function(meshes) {
+            var bunny = meshes[0];
+            bunny.position = new Vector3(1, 2, 3);
+        });
 
         return scene;        
     }
@@ -445,33 +458,31 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
         for (var i = 0; i < meshes.length; i++) {
             var mesh = meshes[i];
             if (isMeshGrabbable(mesh)) {
-                var otherPos = mesh.position;
-                var dist = Vector3.Distance(pos, otherPos);
-                if (dist < grabDistance) {
-                    if (leftGrabbedMesh != null) {
-                        if (webVRController != null && webVRController.mesh != null) {
-                            if (webVRController.mesh.getChildMeshes().includes(leftGrabbedMesh)) {
-                                webVRController.mesh.removeChild(leftGrabbedMesh);
-    
+                if (webVRController.mesh) {
+                    if (mesh.getBoundingInfo().intersects(webVRController.mesh.getBoundingInfo(), true)) {
+                        if (rightGrabbedMesh != null) {
+                            if (webVRController != null && webVRController.mesh != null) {
+                                if (webVRController.mesh.getChildMeshes().includes(rightGrabbedMesh)) {
+                                    webVRController.mesh.removeChild(rightGrabbedMesh);
+                                }
+                            } else {
+                                logMessage("Error: rightController was null");
                             }
+                            rightGrabbedMesh = null;
+                        }
+        
+                        rightGrabbedMesh = mesh;
+                        if (webVRController != null && webVRController.mesh != null) {
+                            if (isMeshFromBelt(mesh)) {
+                                releaseFromBelt(mesh, "right");
+                            }
+                            webVRController.mesh.addChild(rightGrabbedMesh)
+                            grabSound.play();
                         } else {
-                            logMessage("Error: leftController was null");
+                            logMessage("Error: rightController was null");
                         }
-                        leftGrabbedMesh = null;
                     }
-    
-                    leftGrabbedMesh = mesh;
-                    if (webVRController != null && webVRController.mesh != null) {
-                        if (isMeshFromBelt(mesh)) {
-                            releaseFromBelt(mesh, "left");
-                        }
-                        webVRController.mesh.addChild(leftGrabbedMesh);
-                        grabSound.play();
-                    } else {
-                        logMessage("Error: leftController was null");
-                    }
-                    logMessage("Got a mesh that is " + dist + " away");
-                    return;
+
                 }
             }
         }
@@ -484,31 +495,33 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
         for (var i = 0; i < meshes.length; i++) {
             var mesh = meshes[i];
             if (isMeshGrabbable(mesh)) {
-                var otherPos = mesh.position;
-                var dist = Vector3.Distance(pos, otherPos);
-                if (dist < grabDistance) {
-                    if (rightGrabbedMesh != null) {
-                        if (webVRController != null && webVRController.mesh != null) {
-                            if (webVRController.mesh.getChildMeshes().includes(rightGrabbedMesh)) {
-                                webVRController.mesh.removeChild(rightGrabbedMesh);
+                if (webVRController.mesh) {
+                    if (mesh.getBoundingInfo().intersects(webVRController.mesh.getBoundingInfo(), true)) {
+                        if (rightGrabbedMesh != null) {
+                            if (webVRController != null && webVRController.mesh != null) {
+                                if (webVRController.mesh.getChildMeshes().includes(rightGrabbedMesh)) {
+                                    webVRController.mesh.removeChild(rightGrabbedMesh);
+                                }
+                            } else {
+                                logMessage("Error: rightController was null");
                             }
+                            rightGrabbedMesh = null;
+                        }
+        
+                        rightGrabbedMesh = mesh;
+                        if (webVRController != null && webVRController.mesh != null) {
+                            if (isMeshFromBelt(mesh)) {
+                                releaseFromBelt(mesh, "right");
+                            }
+                            webVRController.mesh.addChild(rightGrabbedMesh)
+                            grabSound.play();
                         } else {
                             logMessage("Error: rightController was null");
                         }
-                        rightGrabbedMesh = null;
                     }
-    
-                    rightGrabbedMesh = mesh;
-                    if (webVRController != null && webVRController.mesh != null) {
-                        if (isMeshFromBelt(mesh)) {
-                            releaseFromBelt(mesh, "right");
-                        }
-                        webVRController.mesh.addChild(rightGrabbedMesh)
-                        grabSound.play();
-                    } else {
-                        logMessage("Error: rightController was null");
-                    }
+
                 }
+                
             }
             
         }
@@ -564,6 +577,7 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
                 pushToBelt(leftGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(leftGrabbedMesh);
                 leftGrabbedMesh = null;
+                releaseSound.play()
             }
         } else {
             logMessage("Error: leftController was null");
@@ -575,6 +589,7 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
                 pushToBelt(rightGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(rightGrabbedMesh);
                 rightGrabbedMesh = null;
+                releaseSound.play()
             }
         } else {
             logMessage("Error: rightController was null");
