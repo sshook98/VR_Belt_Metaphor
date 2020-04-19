@@ -373,10 +373,6 @@ var setupVR = function() {
 
     scene.onBeforeRenderObservable.add(()=>{
         if (belt != null && vrHelper.webVRCamera) {
-            if (vrHelper.webVRCamera.deviceRotationQuaternion.clone().x > 0.25) {
-                logMessage("");
-                logMessage(vrHelper.webVRCamera.devicePosition.clone().y + "");
-            }
             belt.belt_mesh.position = vrHelper.webVRCamera.devicePosition.clone();
             belt.belt_mesh.position.y -= belt_offset_y;
             var qx_factor = 0.42;
@@ -438,6 +434,10 @@ var setupVR = function() {
             } else {
                 if (stateObject.pressed === true) {
                     logMessage("Pressed B button on right controller");
+                    var temp1 = belt.belt_vertices.shift()!;
+                    var temp2 = belt.belt_vertices.shift()!;
+                    belt.belt_vertices.push(temp1);
+                    belt.belt_vertices.push(temp2);
                 } else if (stateObject.pressed === false) {
 
                 }
