@@ -28,10 +28,14 @@ var woodenStaffURL = "./textures/WoodenStaff.png";
 // Sound URLs
 var grabURL = "./audio/grab.wav";
 var releaseURL = "./audio/release.wav";
+var beltinURL = "./audio/beltin.wav";
+var beltoutURL = "./audio/beltout.wav";
 
 // Sounds
 var grabSound: Core.Sound;
 var releaseSound: Core.Sound;
+var beltinSound: Core.Sound;
+var beltoutSound: Core.Sound;
 
 // VR additions
 var vrHelper: Core.VRExperienceHelper;
@@ -261,8 +265,12 @@ class Playground {
 
         var grabVolume = 1;
         var releaseVolume = 1;
+        var beltinVolume = 6;
+        var beltoutVolume = 4;
         grabSound = new Sound("grabSound", grabURL, scene, null, {autoplay: false, loop: false, volume: grabVolume});
         releaseSound = new Sound("releaseSound", releaseURL, scene, null, {autoplay: true, loop: false, volume: releaseVolume});
+        beltinSound = new Sound("beltinSound", beltinURL, scene, null, {autoplay: false, loop: false, volume: beltinVolume});
+        beltoutSound = new Sound("beltoutSound", beltoutURL, scene, null, {autoplay: false, loop: false, volume: beltoutVolume});
         
         //Belt
         var belt_mat = new StandardMaterial("belt_mat", scene);
@@ -311,6 +319,16 @@ class Playground {
         var staffMaterial = new StandardMaterial("staffMat", scene);
         staffMaterial.diffuseTexture = new Texture(woodenStaffURL, scene);
         staff.material = staffMaterial;
+
+        var bugNetLength = 1.5;
+        var bugNet = MeshBuilder.CreateCylinder(grabbableTag + "staff", {diameter: 0.05, tessellation: 8, height: staffLength})
+        // staffHandle.addChild(staff);
+        bugNet.position = new Vector3(1, 1, 1);
+        bugNet.rotate(new Vector3(0, 0, 1), Math.PI / 2, Core.Space.WORLD);
+        var bugNetMaterial = new StandardMaterial("staffMat", scene);
+        bugNetMaterial.diffuseTexture = new Texture(woodenStaffURL, scene);
+        bugNet.material = bugNetMaterial;
+
         return scene;        
     }
 } 
@@ -507,11 +525,16 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
         
                         rightGrabbedMesh = mesh;
                         if (webVRController != null && webVRController.mesh != null) {
+                            var gotReleasedFromBelt = -1;
                             if (isMeshFromBelt(mesh)) {
-                                releaseFromBelt(mesh, "right");
+                                gotReleasedFromBelt = releaseFromBelt(mesh, "right");
                             }
                             webVRController.mesh.addChild(rightGrabbedMesh)
-                            grabSound.play();
+                            if (gotReleasedFromBelt == 1) {
+                                beltoutSound.play();
+                            } else {
+                                grabSound.play();
+                            }
                         } else {
                             logMessage("Error: rightController was null");
                         }
@@ -544,11 +567,17 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
         
                         rightGrabbedMesh = mesh;
                         if (webVRController != null && webVRController.mesh != null) {
+                            var gotReleasedFromBelt = -1;
                             if (isMeshFromBelt(mesh)) {
-                                releaseFromBelt(mesh, "right");
+                                gotReleasedFromBelt = releaseFromBelt(mesh, "right");
                             }
                             webVRController.mesh.addChild(rightGrabbedMesh)
-                            grabSound.play();
+                            if (gotReleasedFromBelt == 1) {
+                                beltoutSound.play();
+                            } else {
+                                grabSound.play();
+                            }
+                            
                         } else {
                             logMessage("Error: rightController was null");
                         }
@@ -582,7 +611,10 @@ var pushToBelt = function(grabbedMesh: Core.AbstractMesh, webVRController: Core.
         grabbedMesh.name = grabbedMesh.name + "belt";
         belt.beltObjects.push(new GrabbedObject(grabbedMesh));
         belt.belt_pushedIndex.push(minIndex);
+        // beltinSound.play();
+        return 1;
     }
+    return 0;
 }
 
 var releaseFromBelt = function(grabbedMesh: Core.AbstractMesh, leftOrRight: string) {
@@ -597,10 +629,13 @@ var releaseFromBelt = function(grabbedMesh: Core.AbstractMesh, leftOrRight: stri
             }
             belt.beltObjects.splice(index, 1);
             belt.belt_pushedIndex.splice(index, 1);
-            break;
+            // beltoutSound.play();
+            return 1;
+            // break;
         }
         index++;
     }
+    return 0;
 }
 
 var handleTriggerReleased = function(webVRController: Core.WebVRController) {
@@ -608,10 +643,14 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
         isLeftTriggerDown = false;
         if (webVRController != null) {
             if (leftGrabbedMesh != null && webVRController.mesh != null) {
-                pushToBelt(leftGrabbedMesh, webVRController);
+                var gotPushedToBelt = pushToBelt(leftGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(leftGrabbedMesh);
                 leftGrabbedMesh = null;
-                releaseSound.play()
+                if (gotPushedToBelt == 1) {
+                    beltinSound.play();
+                } else {
+                    releaseSound.play();
+                }
             }
         } else {
             logMessage("Error: leftController was null");
@@ -620,10 +659,14 @@ var handleTriggerReleased = function(webVRController: Core.WebVRController) {
         isRightTriggerDown = false;
         if (webVRController != null) {
             if (rightGrabbedMesh != null && webVRController.mesh != null) {
-                pushToBelt(rightGrabbedMesh, webVRController);
+                var gotPushedToBelt = pushToBelt(rightGrabbedMesh, webVRController);
                 webVRController.mesh.removeChild(rightGrabbedMesh);
                 rightGrabbedMesh = null;
-                releaseSound.play()
+                if (gotPushedToBelt == 1) {
+                    beltinSound.play();
+                } else {
+                    releaseSound.play();
+                }
             }
         } else {
             logMessage("Error: rightController was null");
