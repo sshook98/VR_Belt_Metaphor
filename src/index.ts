@@ -38,7 +38,7 @@ var vrHelper: Core.VRExperienceHelper;
 
 var belt: Belt;
 var belt_height = 0.1;
-var belt_offset_y = 0.7;
+var belt_offset_y = 0.6;
 var leftReleaseObject: GrabbedObject | null;
 var rightReleaseObject: GrabbedObject | null;
 
@@ -50,6 +50,8 @@ var isRightTriggerDown = false;
 var grabbableTag = "Grabbable";
 var beltTag = "belt";
 var grabDistance = 0.1;
+var belt_radius = 0.2
+var beltOffsetFactor = 5;
 
 var openScene = function() {
     setupVR();
@@ -273,22 +275,25 @@ class Playground {
         var belt_radius = 0.2;
         
         for(var i = 0; i < 2; i++) {
-            var x = i * segLength;
-            var y = 0;
+            var x = 0;
+            var y = i * segLength;
             var z = 0;
             path.push(new Vector3(x, y, z));
             
         }
         var belt_mesh = MeshBuilder.CreateTube("belt", {path: path, radius: belt_radius, sideOrientation: Mesh.DOUBLESIDE, updatable: true, tessellation: numSides}, scene);
         belt_mesh.material = belt_mat;
-        belt_mesh.rotate(Axis.Z, Math.PI / 2, Space.WORLD);
+        // belt_mesh.rotate(Axis.Z, Math.PI / 2, Space.WORLD);
         belt = new Belt(belt_mesh, numSides, belt_radius);
 
         // Player body 
-        var body = MeshBuilder.CreateSphere("body", {diameter: 0.2}, scene);
+        var body_mat = new StandardMaterial("body_mat", scene);
+        body_mat.diffuseColor = new Color3(0.40, 0.8, 1.0);
+        var body = MeshBuilder.CreateSphere("body", {diameter: 1.8 * belt_radius}, scene);
+        body.material = body_mat;
         belt_mesh.addChild(body);
         body.position = Vector3.Zero();
-        body.scaling = new Vector3(1.6, 5, 1.2)
+        body.scaling = new Vector3(1, 2.1, 1)
 
         // Other Objects
         var staffLength = 1.5
@@ -368,8 +373,21 @@ var setupVR = function() {
 
     scene.onBeforeRenderObservable.add(()=>{
         if (belt != null && vrHelper.webVRCamera) {
+            if (vrHelper.webVRCamera.deviceRotationQuaternion.clone().x > 0.25) {
+                logMessage("");
+                logMessage(vrHelper.webVRCamera.devicePosition.clone().y + "");
+            }
             belt.belt_mesh.position = vrHelper.webVRCamera.devicePosition.clone();
             belt.belt_mesh.position.y -= belt_offset_y;
+            var qx_factor = 0.42;
+            if (vrHelper.webVRCamera.deviceRotationQuaternion.toEulerAngles().x < Math.PI * qx_factor) {
+                belt.belt_mesh.position.x -= (1 - vrHelper.webVRCamera.devicePosition.clone().y) * Math.tan(vrHelper.webVRCamera.deviceRotationQuaternion.toEulerAngles().x) * Math.sin(vrHelper.webVRCamera.deviceRotationQuaternion.toEulerAngles().y) / beltOffsetFactor;
+                belt.belt_mesh.position.z -= (1 - vrHelper.webVRCamera.devicePosition.clone().y) * Math.tan(vrHelper.webVRCamera.deviceRotationQuaternion.toEulerAngles().x) * Math.cos(vrHelper.webVRCamera.deviceRotationQuaternion.toEulerAngles().y) / beltOffsetFactor;
+            } else {
+                belt.belt_mesh.position.x -= (1 - vrHelper.webVRCamera.devicePosition.clone().y) * Math.tan(Math.PI * qx_factor) * Math.sin(vrHelper.webVRCamera.deviceRotationQuaternion.toEulerAngles().y) / beltOffsetFactor;
+                belt.belt_mesh.position.z -= (1 - vrHelper.webVRCamera.devicePosition.clone().y) * Math.tan(Math.PI * qx_factor) * Math.cos(vrHelper.webVRCamera.deviceRotationQuaternion.toEulerAngles().y) / beltOffsetFactor;
+            }
+            
             belt.beltObjects.forEach((object, index) => {
                 object.mesh.position = vrHelper.webVRCamera.devicePosition.clone();
                 object.mesh.position.x += belt.belt_vertices[belt.belt_pushedIndex[index]].x;
