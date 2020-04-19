@@ -368,7 +368,20 @@ class Playground {
         mosaicDonut.position = new Vector3(-0.7, 0.6, 1.5);
         var donutMat = new StandardMaterial("donutMat", scene);
         donutMat.diffuseTexture = new Texture(mosaicURL, scene);
-        mosaicDonut.material = donutMat;       
+        mosaicDonut.material = donutMat;
+
+        var concreteDonut = MeshBuilder.CreateTorus(grabbableTag + "donut", {diameter: 0.25, thickness: 0.1}, scene);
+        concreteDonut.position = new Vector3(-0.7, 0.8, 1.5);
+        var donutMat2 = new StandardMaterial("donutMat", scene);
+        donutMat2.diffuseTexture = new Texture(leafURL, scene);
+        concreteDonut.material = donutMat2
+
+        var volcanisDonut = MeshBuilder.CreateTorus(grabbableTag + "donut", {diameter: 0.25, thickness: 0.1}, scene);
+        volcanisDonut.position = new Vector3(-0.7, 1, 1.5);
+        var donutMat3 = new StandardMaterial("donutMat", scene);
+        donutMat3.diffuseTexture = new Texture(volcanicURL, scene);
+        concreteDonut.material = donutMat3
+        volcanisDonut
 
 
         return scene;        
@@ -474,7 +487,7 @@ var setupVR = function() {
                 object.mesh.position.y -= belt_offset_y;
                 object.mesh.position.z += belt.belt_vertices[belt.belt_pushedIndex[index]].z;
                 
-                if (object.initialBoundingMaxLength * object.scaleFactor > belt_height) {
+                if (object.initialBoundingMaxLength * object.scaleFactor > belt_height * 0.5) {
                     object.scaleFactor -= 0.05;
                     object.mesh.scaling.x = object.scaleFactor;
                     object.mesh.scaling.y = object.scaleFactor;
