@@ -1,6 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix, SceneLoader, Quaternion } from "@babylonjs/core";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix, SceneLoader, Quaternion, Vector4 } from "@babylonjs/core";
 import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
@@ -24,6 +24,8 @@ var concreteURL = "./textures/concrete.jpg";
 var groundTexture = "./Textures/ground.jpg";
 var skyTexture = "./Textures/sky";
 var woodenStaffURL = "./textures/WoodenStaff.png";
+var tomNookURL = "./textures/tom.png";
+var soccerBallURL = "./textures/soccerball.jpg";
 
 // Sound URLs
 var grabURL = "./audio/grab.wav";
@@ -303,6 +305,11 @@ class Playground {
         body.position = Vector3.Zero();
         body.scaling = new Vector3(1, 2.1, 1)
 
+        // Non-grabbable objects
+        var tomNook = makeBox("tomNook", tomNookURL);
+        tomNook.position = new Vector3(-1.5, 1, 5);
+        tomNook.scaling = new Vector3(0.5, 0.5, 0.5);
+
         // Other Objects
         var staffLength = 1.5
         var staffHandle = MeshBuilder.CreateCylinder(grabbableTag + "staffHandle",  {diameter: 0.07, tessellation: 8, height: staffLength / 4}, scene)
@@ -320,14 +327,11 @@ class Playground {
         staffMaterial.diffuseTexture = new Texture(woodenStaffURL, scene);
         staff.material = staffMaterial;
 
-        var bugNetLength = 1.5;
-        var bugNet = MeshBuilder.CreateCylinder(grabbableTag + "staff", {diameter: 0.05, tessellation: 8, height: staffLength})
-        // staffHandle.addChild(staff);
-        bugNet.position = new Vector3(1, 1, 1);
-        bugNet.rotate(new Vector3(0, 0, 1), Math.PI / 2, Core.Space.WORLD);
-        var bugNetMaterial = new StandardMaterial("staffMat", scene);
-        bugNetMaterial.diffuseTexture = new Texture(woodenStaffURL, scene);
-        bugNet.material = bugNetMaterial;
+        var soccerBall = MeshBuilder.CreateSphere(grabbableTag + " soccerBall ", {diameter: 0.3}, scene);
+        soccerBall.position = new Vector3(1, 1, 1);
+        var soccerBall_mat = new StandardMaterial("soccerBall_mat", scene);
+        soccerBall_mat.diffuseTexture = new Texture(soccerBallURL, scene);
+        soccerBall.material = soccerBall_mat;
 
         return scene;        
     }
@@ -382,6 +386,30 @@ var updateStatusBlock1 = function() {
         newText = messages[curMessageIndex];
     }
     statusBlock1.text = newText;
+}
+
+var makeBox = function(name: string, fileLocation: string) {
+    var columns = 6;  // 6 columns
+        var rows = 1;  // 1 row
+            //alien sprite
+        var faceUV = new Array(6);
+
+        //set all faces to same
+        for (var i = 0; i < 6; i++) {
+            faceUV[i] = new Vector4(i / columns, 0, (i + 1) / columns, 1 / rows);
+        }
+        //wrap set
+        var options = {
+            faceUV: faceUV,
+            wrap: true
+        };
+
+        var box = MeshBuilder.CreateBox(name, options, scene);
+        var mat = new StandardMaterial(name, scene);
+        var texture = new Texture(fileLocation, scene);
+        mat.diffuseTexture = texture;
+        box.material = mat;
+        return box;
 }
 
 var setupVR = function() {
