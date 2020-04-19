@@ -579,31 +579,31 @@ var handleTriggerPressed = function(webVRController: Core.WebVRController) {
             if (isMeshGrabbable(mesh)) {
                 if (webVRController.mesh) {
                     if (mesh.getBoundingInfo().intersects(webVRController.mesh.getBoundingInfo(), true)) {
-                        if (rightGrabbedMesh != null) {
+                        if (leftGrabbedMesh != null) {
                             if (webVRController != null && webVRController.mesh != null) {
-                                if (webVRController.mesh.getChildMeshes().includes(rightGrabbedMesh)) {
-                                    webVRController.mesh.removeChild(rightGrabbedMesh);
+                                if (webVRController.mesh.getChildMeshes().includes(leftGrabbedMesh)) {
+                                    webVRController.mesh.removeChild(leftGrabbedMesh);
                                 }
                             } else {
-                                logMessage("Error: rightController was null");
+                                logMessage("Error: leftController was null");
                             }
-                            rightGrabbedMesh = null;
+                            leftGrabbedMesh = null;
                         }
         
-                        rightGrabbedMesh = mesh;
+                        leftGrabbedMesh = mesh;
                         if (webVRController != null && webVRController.mesh != null) {
                             var gotReleasedFromBelt = -1;
                             if (isMeshFromBelt(mesh)) {
-                                gotReleasedFromBelt = releaseFromBelt(mesh, "right");
+                                gotReleasedFromBelt = releaseFromBelt(mesh, "left");
                             }
-                            webVRController.mesh.addChild(rightGrabbedMesh)
+                            webVRController.mesh.addChild(leftGrabbedMesh)
                             if (gotReleasedFromBelt == 1) {
                                 beltoutSound.play();
                             } else {
                                 grabSound.play();
                             }
                         } else {
-                            logMessage("Error: rightController was null");
+                            logMessage("Error: leftController was null");
                         }
                     }
 
