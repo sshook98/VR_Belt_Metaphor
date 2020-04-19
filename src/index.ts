@@ -1,6 +1,6 @@
 import * as Core from "@babylonjs/core";
 import * as GUI from "@babylonjs/gui";
-import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix, SceneLoader, Quaternion, Vector4 } from "@babylonjs/core";
+import { Color3, Vector3, StandardMaterial, _BabylonLoaderRegistered, Mesh, MeshBuilder, Texture, WebVRController, Sound, CubeTexture, Axis, Space, WebXRCamera, AbstractMesh, Matrix, SceneLoader, Quaternion, Vector4, Material } from "@babylonjs/core";
 import { volumetricLightScatteringPixelShader } from "@babylonjs/core/Shaders/volumetricLightScattering.fragment";
 var canvas = document.getElementById("renderCanvas") as HTMLCanvasElement; // Get the canvas element 
 var engine = new Core.Engine(canvas, true); // Generate the BABYLON 3D engine
@@ -32,12 +32,14 @@ var grabURL = "./audio/grab.wav";
 var releaseURL = "./audio/release.wav";
 var beltinURL = "./audio/beltin.wav";
 var beltoutURL = "./audio/beltout.wav";
+var turnUrl = "./audio/turn.wav";
 
 // Sounds
 var grabSound: Core.Sound;
 var releaseSound: Core.Sound;
 var beltinSound: Core.Sound;
 var beltoutSound: Core.Sound;
+var turnSound: Core.Sound;
 
 // VR additions
 var vrHelper: Core.VRExperienceHelper;
@@ -248,20 +250,22 @@ class Playground {
         debugTexture.addControl(textSlider1);
 
         // add test spheres
-        var rows = 4;
-        var columns = 4;
-        var x = 0.5;
+        var rows = 3;
+        var columns = 3;
+        var x = 0.7;
         var y = 0.5;
         var z = 1.5;
-        var spacing = 0.5
-        var scale = 0.5;
+        var spacing = 0.4;
+        var scale = 0.35;
 
         for (var i = 0; i < rows; i++) {
             for (var j = 0; j < columns; j++) {
-                var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere " + i + " " + j, {diameter: scale / 2}, scene);
+                var diam = Math.random() * scale + scale / 4
+                var sphere = MeshBuilder.CreateSphere(grabbableTag + " Sphere " + i + " " + j, {diameter: diam}, scene);
                 sphere.position = new Vector3(x, y + i * spacing, z + j * spacing);
-                var val = Math.random() * scale + scale / 4
-                sphere.scaling = new Vector3(val, val, val)
+                var mat = new StandardMaterial("sphereMat", scene);
+                mat.diffuseColor = Color3.Random();
+                sphere.material = mat;
             }
         }
 
@@ -269,10 +273,13 @@ class Playground {
         var releaseVolume = 1;
         var beltinVolume = 6;
         var beltoutVolume = 4;
+        var turnVolume = 1;
         grabSound = new Sound("grabSound", grabURL, scene, null, {autoplay: false, loop: false, volume: grabVolume});
         releaseSound = new Sound("releaseSound", releaseURL, scene, null, {autoplay: true, loop: false, volume: releaseVolume});
         beltinSound = new Sound("beltinSound", beltinURL, scene, null, {autoplay: false, loop: false, volume: beltinVolume});
         beltoutSound = new Sound("beltoutSound", beltoutURL, scene, null, {autoplay: false, loop: false, volume: beltoutVolume});
+        turnSound = new Sound("turnSound", turnUrl, scene, null, {autoplay: false, loop: false, volume: turnVolume});
+
         
         //Belt
         var belt_mat = new StandardMaterial("belt_mat", scene);
@@ -312,26 +319,57 @@ class Playground {
 
         // Other Objects
         var staffLength = 1.5
-        var staffHandle = MeshBuilder.CreateCylinder(grabbableTag + "staffHandle",  {diameter: 0.07, tessellation: 8, height: staffLength / 4}, scene)
-        staffHandle.position = new Vector3(0, 1, 2.5);
-        staffHandle.rotate(new Vector3(0, 0, 1), Math.PI / 2, Core.Space.WORLD);
+        var weightLength = 0.3;
+
+        var staffHandle = MeshBuilder.CreateCylinder(grabbableTag + "staffHandle",  {diameter: 0.07, tessellation: 16, height: staffLength / 4}, scene)
+        staffHandle.position = new Vector3(0, 0.7, 2.6);
+        staffHandle.rotate(new Vector3(0, 0, 1), Math.PI / 2, Space.WORLD);
         var handleMaterial = new StandardMaterial("handleMat", scene);
-        handleMaterial.diffuseTexture = new Texture(mosaicURL, scene);
+        handleMaterial.diffuseTexture = new Texture(woodenStaffURL, scene);
         staffHandle.material = handleMaterial;
 
-        var staff = MeshBuilder.CreateCylinder("staff", {diameter: 0.05, tessellation: 8, height: staffLength})
+        var staff = MeshBuilder.CreateCylinder("staff", {diameter: 0.065, tessellation: 16, height: staffLength})
         staffHandle.addChild(staff);
         staff.position = Vector3.Zero();
-        staff.rotate(new Vector3(0, 0, 1), Math.PI / 2, Core.Space.WORLD);
+        staff.rotate(new Vector3(0, 0, 1), Math.PI / 2, Space.WORLD);
         var staffMaterial = new StandardMaterial("staffMat", scene);
         staffMaterial.diffuseTexture = new Texture(woodenStaffURL, scene);
         staff.material = staffMaterial;
 
         var soccerBall = MeshBuilder.CreateSphere(grabbableTag + " soccerBall ", {diameter: 0.3}, scene);
-        soccerBall.position = new Vector3(1, 1, 1);
+        soccerBall.position = new Vector3(0, 0.3, 2.4);
         var soccerBall_mat = new StandardMaterial("soccerBall_mat", scene);
         soccerBall_mat.diffuseTexture = new Texture(soccerBallURL, scene);
         soccerBall.material = soccerBall_mat;
+
+        var weight = MeshBuilder.CreateCylinder(grabbableTag + "weight", { diameter: 0.07, tessellation: 16, height: weightLength}, scene);
+        weight.position = new Vector3(-0.5, 1.2, 2.5);
+        var weightMat = new StandardMaterial("weightMat", scene);
+        weightMat.diffuseColor = new Color3(0.4, 0.4, 0.5);
+        weight.material = weightMat;
+        weight.rotate(new Vector3(0, 0, 1), Math.PI / 2, Space.WORLD)
+
+        var weightEndMat = new StandardMaterial("weightEndMat", scene);
+        weightEndMat.diffuseColor = new Color3(0.1, 0.1, 0.1);
+        var weightEnd1 = MeshBuilder.CreateCylinder("weightEnd", { diameter: 0.2, height: 0.05, tessellation: 16}, scene)
+        weightEnd1.rotate(new Vector3(0, 0, 1), Math.PI / 2, Space.WORLD)
+        weight.addChild(weightEnd1);
+        weightEnd1.position = new Vector3(0, weightLength/2, 0);
+        weightEnd1.material = weightEndMat;
+
+        var weightEnd2 = MeshBuilder.CreateCylinder("weightEnd", { diameter: 0.2, height: 0.05, tessellation: 16}, scene)
+        weightEnd2.rotate(new Vector3(0, 0, 1), Math.PI / 2, Space.WORLD)
+        weight.addChild(weightEnd2);
+        weightEnd2.position = new Vector3(0,-weightLength/2, 0);
+        weightEnd2.material = weightEndMat;
+        weight.rotate(new Vector3(0, 1, 0), Math.PI / 6);
+
+        var mosaicDonut = MeshBuilder.CreateTorus(grabbableTag + "donut", {diameter: 0.25, thickness: 0.1}, scene);
+        mosaicDonut.position = new Vector3(-0.7, 0.6, 1.5);
+        var donutMat = new StandardMaterial("donutMat", scene);
+        donutMat.diffuseTexture = new Texture(mosaicURL, scene);
+        mosaicDonut.material = donutMat;       
+
 
         return scene;        
     }
@@ -484,6 +522,7 @@ var setupVR = function() {
                     var temp2 = belt.belt_vertices.shift()!;
                     belt.belt_vertices.push(temp1);
                     belt.belt_vertices.push(temp2);
+                    turnSound.play();
                 } else if (stateObject.pressed === false) {
 
                 }
